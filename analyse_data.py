@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import glob
 
 restartfile = "{:d}"
 children = []
@@ -8,13 +9,15 @@ count = 0
 dt = 0.005
 #mother = np.genfromtxt("mother.txt")
 
-for i in range(100300, 199900+300, 300):
-    readfile = restartfile.format(i)
+folders = glob.glob("study/ttcfmirror*")
+folders.sort()
+
+for readfile in folders:
 
     try:
-        print("Reading file ", readfile)
-        mirror = np.genfromtxt("study/ttcf"+readfile + "/output.txt")
-        path = np.genfromtxt("study/ttcf"+"mirror"+readfile + "/output.txt")
+        print("Reading file ", readfile.replace("mirror","") , " and mirror")
+        mirror = np.genfromtxt(readfile + "/output.txt")
+        path = np.genfromtxt(readfile.replace("mirror","") + "/output.txt")
 
         Pxy += mirror[:,2]-mirror[:,3]
         Pxy += path[:,2]-path[:,3]

@@ -70,11 +70,7 @@ The output currently looks like this,
 ![alt text](https://raw.githubusercontent.com/ImperialCollegeLondon/TTCF/master/TTCF_out.png)
 
 
-Currently, you need to specify the range you want to analyse in
-
-    range(100300, 199900+300, 300)
-
-There is an optional output can be switched on in mother,
+Note there is an optional output can be switched on in mother,
 
     fix		        6 all ave/chunk 5 40 1000 layers density/mass vx temp  c_stress[1] c_stress[2]  c_stress[3]  c_stress[4] file profile.wall.2d
 
