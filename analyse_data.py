@@ -6,7 +6,7 @@ children = []
 disp = 0.0; Pxy = 0.0
 count = 0
 dt = 0.005
-mother = np.genfromtxt("mother.txt")
+#mother = np.genfromtxt("mother.txt")
 
 for i in range(100300, 199900+300, 300):
     readfile = restartfile.format(i)
