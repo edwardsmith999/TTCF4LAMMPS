@@ -65,6 +65,11 @@ Each of the child trajectories creates data in the study folder, the final resul
     analyse_data.py
 
 which loops over the ttcf folders in the study directory and tries to average all of them.
+The output currently looks like this,
+
+![alt text](https://raw.githubusercontent.com/ImperialCollegeLondon/TTCF/master/TTCF_out.png)
+
+
 Currently, you need to specify the range you want to analyse in
 
     range(100300, 199900+300, 300)
