@@ -109,32 +109,8 @@ fix_modify      3 temp thermallower
 fix		        4 uppersites setforce 0.0 0.0 0.0
 fix		        5 lowersites setforce 0.0 0.0 0.0
 
-
-compute         stress all stress/atom NULL pair
-compute         layers all chunk/atom bin/1d y center 0.05 units box
-fix		        6 all ave/chunk 25 400 10000 layers density/mass vx vy vz temp  c_stress[1] c_stress[2]  c_stress[3]  c_stress[4] file profile.wall.2d
-
-# MOP stress
-compute         fij_upper flow group/group upper pair yes
-compute         fij_lower flow group/group lower pair yes
-
-# Dissipation function (bond force part)
-compute         thether_lower lowersites group/group all molecule intra
-compute         thether_upper uppersites group/group all molecule intra
-
 thermo          1000
-thermo_style	custom step temp epair etotal press pxy c_fij_upper[1] c_fij_lower[1] c_thether_lower[1] c_thether_upper[1]
-
-#dump            3 all dcd 10 vmd_out.dcd
-
-variable 	step equal step
-variable 	temp equal temp
-variable	fijMOP_lower equal c_fij_lower[1]
-variable	fijMOP_upper equal c_fij_upper[1]
-variable	dissipation_lower equal c_thether_lower[1]
-variable	dissipation_upper equal c_thether_upper[1]
-
-fix		7 all print 1 "${step} ${temp} ${fijMOP_lower} ${fijMOP_upper} ${dissipation_lower}  ${dissipation_upper}" file mother.txt screen no 
+thermo_style	custom step temp epair etotal press pxy
 
 #Equilibration
 run	           100000
