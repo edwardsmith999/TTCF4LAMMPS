@@ -1,0 +1,117 @@
+# sample LAMMPS input script for viscosity of 3d LJ liquid
+# use tethered shearing wall, thermostat via fix langevin
+
+#This is needed for bulk runs to allow job sizing 
+processors 1 1 1
+
+#System parameters
+variable	rho equal 0.8442
+variable    T equal 1.0
+variable	rc equal 1.122462
+variable	srate equal 0.0#25
+
+# Domain size and walls
+variable	x equal 5
+variable	y equal 5
+variable	z equal 5
+variable    wallwidth equal 0.3
+
+# Set outside of domain to be wall
+variable	ylo equal -${wallwidth}
+variable	yhi equal ${y}+${wallwidth}#+0.5
+
+#Thermostatted region outer half of wall
+variable	ythemlo equal -0.5*${wallwidth}
+variable	ythemhi equal ${y}+0.5*${wallwidth}
+
+#Add a buffer of empty space to prevent molecules moving too far they leave the domain
+variable	buf equal 2.0
+variable	ylobuf equal ${ylo}-${buf}
+variable	yhibuf equal ${yhi}+${buf}
+
+#type    fluidtype 1
+#type    lowertype 2
+#type    uppertype 3
+#type    lowersitetype 4
+#type    uppersitetype 5
+
+#Basic simulation setup
+units		    lj
+dimension	    3
+atom_style      full 
+neigh_modify	delay 0 every 1
+
+boundary		p f p
+
+pair_style      lj/cut ${rc}
+bond_style      harmonic
+
+read_data       mirror_output103900.dat   #output_equil.dat
+region		    latticeregion block INF INF ${ylo} ${yhi} INF INF
+
+
+region		    lower block INF INF ${ylo} 0.0 INF INF
+region		    upper block INF INF ${y} ${yhi} INF INF
+group		    lower type 2
+group		    upper type 3
+group		    wall union lower upper
+
+#Set thermostatting region
+region		    lowertherm block INF INF ${ylo} ${ythemlo} INF INF
+region		    uppertherm block INF INF ${ythemhi} ${yhi} INF INF
+
+group		    lowertherm region lowertherm
+group		    uppertherm region uppertherm
+group		    lowersites type 4
+group		    uppersites type 5
+group		    sites union lowersites uppersites
+
+#Set wall sliding
+velocity	    uppersites set ${srate} 0.0 0.0 units box
+velocity	    lowersites set -${srate} 0.0 0.0 units box
+
+#Get liquid molecules to a flow group
+group		    flow subtract all wall sites
+
+compute		    thermalupper uppertherm temp/partial 0 1 1
+compute		    thermallower lowertherm temp/partial 0 1 1
+compute		    flow flow temp
+
+fix             1 all nve
+fix	            2 uppertherm langevin $T $T 0.1 498094 
+fix	            3 lowertherm langevin $T $T 0.1 498094 
+
+#fix             2 uppertherm nvt temp $T $T 100.0
+#fix             3 lowertherm nvt temp $T $T 100.0
+
+fix_modify      2 temp thermalupper
+fix_modify      3 temp thermallower
+
+fix		        4 uppersites setforce 0.0 0.0 0.0
+fix		        5 lowersites setforce 0.0 0.0 0.0
+
+# MOP stress
+compute         fij_upper flow group/group upper pair yes
+compute         fij_lower flow group/group lower pair yes
+
+# Dissipation function (bond force part)
+compute         thether_lower lowersites group/group all molecule intra
+compute         thether_upper uppersites group/group all molecule intra
+
+thermo          1000
+thermo_style	custom step temp epair etotal press pxy c_fij_upper[1] c_fij_lower[1]  c_thether_lower[1] c_thether_upper[1]
+
+
+#dump		1 all custom 1 output.txt step temp epair etotal press pxy c_fij_upper[1] c_fij_lower[1]  c_thether_lower[1] c_thether_upper[1]
+
+variable 	step equal step
+variable 	temp equal temp
+variable	fijMOP_lower equal c_fij_lower[1]
+variable	fijMOP_upper equal c_fij_upper[1]
+variable	dissipation_lower equal c_thether_lower[1]
+variable	dissipation_upper equal c_thether_upper[1]
+
+fix		6 all print 1 "${step} ${temp} ${fijMOP_lower} ${fijMOP_upper} ${dissipation_lower}  ${dissipation_upper}" file output.txt screen no 
+
+run	           2000
+

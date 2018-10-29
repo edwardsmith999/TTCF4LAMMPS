@@ -1,0 +1,152 @@
+# sample LAMMPS input script for viscosity of 3d LJ liquid
+# use tethered shearing wall, thermostat via fix langevin
+
+#This is needed for bulk runs to allow job sizing 
+processors 1 1 1
+
+#System parameters
+variable	rho equal 0.8442
+variable    T equal 1.0
+variable	rc equal 1.122462
+variable	srate equal 0.0
+
+# Domain size and walls
+variable	x equal 5
+variable	y equal 5
+variable	z equal 5
+variable    wallwidth equal 0.3
+
+# Set outside of domain to be wall
+variable	ylo equal -${wallwidth}
+variable	yhi equal ${y}+${wallwidth}#+0.5
+
+#Thermostatted region outer half of wall
+variable	ythemlo equal -0.5*${wallwidth}
+variable	ythemhi equal ${y}+0.5*${wallwidth}
+
+#Add a buffer of empty space to prevent molecules moving too far they leave the domain
+variable	buf equal 2.0
+variable	ylobuf equal ${ylo}-${buf}
+variable	yhibuf equal ${yhi}+${buf}
+
+#type    fluidtype 1
+#type    lowertype 2
+#type    uppertype 3
+#type    lowersitetype 4
+#type    uppersitetype 5
+
+#Basic simulation setup
+units		    lj
+dimension	    3
+atom_style      full 
+neigh_modify	delay 0 every 1
+boundary		p f p
+
+#Add a padded buffer at top and bottom as tethering allows molecules to wander slightly
+lattice         fcc ${rho}
+region          simbox block 0 $x ${ylobuf} ${yhibuf} 0 $z 
+create_box      5 simbox bond/types 1 extra/bond/per/atom 1
+region		    latticeregion block INF INF ${ylo} ${yhi} INF INF
+create_atoms    1 region latticeregion
+
+#Create lj pair styles and set wall/site terms to zero
+mass            * 1.0
+pair_style      lj/cut ${rc}
+pair_coeff      * * 1.0 1.0
+pair_coeff      2 4 0.0 0.0
+pair_coeff      3 5 0.0 0.0
+
+#Set wall region
+region		    lower block INF INF ${ylo} 0.0 INF INF
+region		    upper block INF INF ${y} ${yhi} INF INF
+group		    lower region lower
+group		    upper region upper
+set		        group lower type 2
+set		        group upper type 3
+group		    wall union lower upper
+
+#Set thermostatting region
+region		    lowertherm block INF INF ${ylo} ${ythemlo} INF INF
+region		    uppertherm block INF INF ${ythemhi} ${yhi} INF INF
+group		    lowertherm region lowertherm
+group		    uppertherm region uppertherm
+group           nottherm subtract all lowertherm uppertherm
+
+#Create a set of tethering sites (as molecules)
+create_atoms    4 region lower
+create_atoms    5 region upper
+group		    lowersites type 4
+group		    uppersites type 5
+group		    sites union lowersites uppersites
+
+#Get liquid molecules to a flow group
+group		    flow subtract all wall sites
+
+#Set imaginary site particles to not interact
+bond_style       harmonic
+bond_coeff       1 150.0 0.0
+create_bonds     many lowersites lower 1 0.0 0.0001
+create_bonds     many uppersites upper 1 0.0 0.0001
+
+velocity        flow create $T 97287
+velocity	    uppersites set ${srate} 0.0 0.0 units box
+velocity	    lowersites set -${srate} 0.0 0.0 units box
+
+compute		    thermalupper uppertherm temp/partial 0 1 1
+compute		    thermallower lowertherm temp/partial 0 1 1
+compute		    flow flow temp
+
+fix             1 all nve
+fix	            2 uppertherm langevin $T $T 0.1 498094 
+fix	            3 lowertherm langevin $T $T 0.1 498094 
+
+#fix             2 uppertherm nvt temp $T $T 100.0
+#fix             3 lowertherm nvt temp $T $T 100.0
+
+fix_modify      2 temp thermalupper
+fix_modify      3 temp thermallower
+
+fix		        4 uppersites setforce 0.0 0.0 0.0
+fix		        5 lowersites setforce 0.0 0.0 0.0
+
+
+compute         stress all stress/atom NULL pair
+compute         layers all chunk/atom bin/1d y center 0.05 units box
+fix		        6 all ave/chunk 25 400 10000 layers density/mass vx vy vz temp  c_stress[1] c_stress[2]  c_stress[3]  c_stress[4] file profile.wall.2d
+
+# MOP stress
+compute         fij_upper flow group/group upper pair yes
+compute         fij_lower flow group/group lower pair yes
+
+# Dissipation function (bond force part)
+compute         thether_lower lowersites group/group all molecule intra
+compute         thether_upper uppersites group/group all molecule intra
+
+thermo          1000
+thermo_style	custom step temp epair etotal press pxy c_fij_upper[1] c_fij_lower[1] c_thether_lower[1] c_thether_upper[1]
+
+#dump            3 all dcd 10 vmd_out.dcd
+
+variable 	step equal step
+variable 	temp equal temp
+variable	fijMOP_lower equal c_fij_lower[1]
+variable	fijMOP_upper equal c_fij_upper[1]
+variable	dissipation_lower equal c_thether_lower[1]
+variable	dissipation_upper equal c_thether_upper[1]
+
+fix		7 all print 1 "${step} ${temp} ${fijMOP_lower} ${fijMOP_upper} ${dissipation_lower}  ${dissipation_upper}" file mother.txt screen no 
+
+#Equilibration
+run	           100000
+write_data output_equil.dat
+
+#Loop over lots of input cases
+label loop
+variable index loop 1000
+
+    run	           300
+    write_data output*.dat
+
+next index
+jump SELF loop
+
