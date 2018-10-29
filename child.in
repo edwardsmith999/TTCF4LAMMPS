@@ -8,7 +8,7 @@ processors 1 1 1
 variable	rho equal 0.8442
 variable    T equal 1.0
 variable	rc equal 1.122462
-variable	srate equal 0.0#25
+variable	srate equal 1.0
 
 # Domain size and walls
 variable	x equal 5
