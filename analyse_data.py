@@ -8,7 +8,7 @@ count = 0
 dt = 0.005
 mother = np.genfromtxt("mother.txt")
 
-for i in range(100300, 100900, 300):
+for i in range(100300, 199900+300, 300):
     readfile = restartfile.format(i)
 
     try:
