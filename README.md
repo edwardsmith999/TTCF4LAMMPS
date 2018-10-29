@@ -67,7 +67,7 @@ Each of the child trajectories creates data in the study folder, the final resul
 which loops over the ttcf folders in the study directory and tries to average all of them.
 The output currently looks like this,
 
-![alt text](https://raw.githubusercontent.com/ImperialCollegeLondon/TTCF/master/TTCF_out.png)
+![alt text](https://github.com/ImperialCollegeLondon/TTCF/blob/master/TTCF_out.png)
 
 
 Note there is an optional output can be switched on in mother,
