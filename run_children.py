@@ -3,6 +3,7 @@ import numpy as np
 import subprocess as sp
 import sys
 import os
+import glob
 
 # Import symwraplib
 sys.path.insert(0, "./SimWrapPy/")
@@ -73,59 +74,83 @@ def phase_space_map(restartfile, maptype="flipymompos"):
                     g.write(l)
 
 
-#Directory which executable and input files are found
-basedir = os.path.dirname(os.path.realpath(__file__)) + "/"
+def run_children(ncpus=6, basename="branch", basedir=None, 
+                 srcdir=None, use_all_files=True):
 
-#Number of processors to use
-ncpus = 6
+    """
+        Run a range of simulations
 
-#Directory used to compile executale (also used to archive details of run for future generations)
-srcdir =  None
+        Inputs:
+            ncpus -- Number of cpus to use in parallel (default 6)
+            basename -- the name of the mother outputs in the form basename{:d}.dat 
+                        used as initial files for each child (default branch)
+            basedir -- location to run parameter study (default current dir)
+            srcdir -- location of lammps src code to create a copy for backup 
+                        and used to compile executable
+            use_all_files -- True or list/tuple with [first, last, step] which would,
+                             for example, give basename000000.dat, basename000300.dat, 
+                             basename000600.dat for [0,900,300] (default True uses all 
+                             basename* files)
+    """
 
-#Setup changes to make to input file
-restartfile = "output{:d}.dat"
-children = []
-#for i in range(100300, 303300, 300):
-for i in range(100300, 100900, 300):
-    children.append(restartfile.format(i))
-    children.append("mirror_" + restartfile.format(i))
+    #Directory which executable and input files are found
+    if basedir == None:
+        basedir = os.path.dirname(os.path.realpath(__file__)) + "/"
 
-changeDict = swl.InputDict({'read_data': children})
-changes = changeDict.expand()
-filenames = changes.filenames()
-
-#Loop over all changes and assign each to a thread
-threadlist =[]
-for thread in range(0,len(changes)):
-
-    rundir = basedir + "ttcf" + filenames[thread].replace("readdata","").replace("output","").replace("pdat","")
-
-    rfile = changes[thread]["read_data"]
-    if (os.path.isfile(rfile)):
-        #Create corresponding mirror file
-        if not "mirror" in rfile:
-            phase_space_map(rfile)
-
-        run = swl.LammpsRun(srcdir=None,
-                            basedir=basedir,
-                            rundir=rundir,
-                            executable='./lmp', #Relative in basedir
-                            inputfile='child.in', #Relative to basedir
-                            outputfile='lammps.out', #Relative to basedir
-                            restartfile=rfile,
-                            deleteoutput=True)
-
-        runlist = [run]
-        threadlist.append(runlist)
-        print('Run in directory '  + rundir + 
-               ' and dryrun is '  + str(run.dryrun))
+    #Setup changes to make to input file
+    children = []
+    
+    if not use_all_files:
+        restartfile = basename + "{:d}.dat"
+        for i in range(use_all_files[0], use_all_files[1], use_all_files[2]):
+            children.append(restartfile.format(i))
+            children.append("mirror_" + restartfile.format(i))
     else:
-        print("Restart file ", changes[thread]["read_data"], " not found")
+        files = glob.glob(basename + "*.dat")
+        files.sort()
+        for i, filename in enumerate(files):
+            children.append(filename)
+            children.append("mirror_" + filename)
 
-#Run the study which contains all threads
-study = swl.Study(threadlist, ncpus, studyfolder="study")
+    #Get change dictonary to adjust input file names
+    changeDict = swl.InputDict({'read_data': children})
+    changes = changeDict.expand()
+    filenames = changes.filenames()
 
-#Run mother trajectory
+    #Loop over all changes and assign each to a thread
+    threadlist =[]
+    for thread in range(0,len(changes)):
+
+        rundir = (basedir + "ttcf" + filenames[thread].replace("readdata","")
+                                                      .replace("branch","")
+                                                      .replace("pdat",""))
+
+        rfile = changes[thread]["read_data"]
+        if (os.path.isfile(rfile)):
+            #Create corresponding mirror file
+            if not "mirror" in rfile:
+                phase_space_map(rfile)
+
+            run = swl.LammpsRun(srcdir=None,
+                                basedir=basedir,
+                                rundir=rundir,
+                                executable='./lmp', #Relative in basedir
+                                inputfile='child.in', #Relative to basedir
+                                outputfile='lammps.out', #Relative to basedir
+                                restartfile=rfile,
+                                deleteoutput=True)
+
+            runlist = [run]
+            threadlist.append(runlist)
+            print('Run in directory '  + rundir + 
+                   ' and dryrun is '  + str(run.dryrun))
+        else:
+            print("Restart file ", changes[thread]["read_data"], " not found")
+
+    #Run the study which contains all threads
+    study = swl.Study(threadlist, ncpus, studyfolder="study")
 
 
+if __name__ == "__main__":
+    run_children()
 
