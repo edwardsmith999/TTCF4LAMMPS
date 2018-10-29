@@ -1,11 +1,20 @@
 #! /usr/bin/env python2.7
 import numpy as np
-import matplotlib.pyplot as plt
+import subprocess as sp
 import sys
 import os
 
-sys.path.append('/home/es205/codes/python/SimWrapPy/')
-import simwraplib as swl
+# Import symwraplib
+sys.path.insert(0, "./SimWrapPy/")
+try:
+    import simwraplib as swl
+except ImportError:
+    cmd = "git clone https://github.com/edwardsmith999/SimWrapPy.git ./SimWrapPy"
+    downloadout = sp.check_output(cmd, shell=True)
+    print(downloadout)
+    sys.path.insert(0, "./SimWrapPy")
+    import simwraplib as swl
+
 
 def ms(s):
     return str(-float(s))
@@ -65,14 +74,13 @@ def phase_space_map(restartfile, maptype="flipymompos"):
 
 
 #Directory which executable and input files are found
-fdir = "/home/es205/scratch/TTCF/"
-basedir = fdir + "/couette/"
+basedir = os.path.dirname(os.path.realpath(__file__)) + "/"
 
 #Number of processors to use
 ncpus = 6
 
 #Directory used to compile executale (also used to archive details of run for future generations)
-srcdir =  "/home/es205/codes/cpl_granlammmps/OpenFOAM-3.0.1_LAMMPS-dev/LAMMPS-dev_coupled/"
+srcdir =  None
 
 #Setup changes to make to input file
 restartfile = "output{:d}.dat"
@@ -98,18 +106,14 @@ for thread in range(0,len(changes)):
         if not "mirror" in rfile:
             phase_space_map(rfile)
 
-        run = swl.LammpsRun(srcdir,
-                            basedir,
-                            rundir,
-                            executable='./lmp_cpl', #Relative in basedir
-                            inputfile='walls_imaginary_sliding_read_bulk.in', #Relative to basedir
+        run = swl.LammpsRun(srcdir=None,
+                            basedir=basedir,
+                            rundir=rundir,
+                            executable='./lmp', #Relative in basedir
+                            inputfile='child.in', #Relative to basedir
                             outputfile='lammps.out', #Relative to basedir
                             restartfile=rfile,
                             deleteoutput=True)
-                            #inputchanges=changes[thread])
-
-        #One run for this thread (i.e. no setup run before main run)
-        #run.finish = finish
 
         runlist = [run]
         threadlist.append(runlist)
