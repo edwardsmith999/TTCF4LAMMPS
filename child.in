@@ -101,9 +101,6 @@ compute         thether_upper uppersites group/group all molecule intra
 thermo          1000
 thermo_style	custom step temp epair etotal press pxy c_fij_upper[1] c_fij_lower[1]  c_thether_lower[1] c_thether_upper[1]
 
-
-#dump		1 all custom 1 output.txt step temp epair etotal press pxy c_fij_upper[1] c_fij_lower[1]  c_thether_lower[1] c_thether_upper[1]
-
 variable 	step equal step
 variable 	temp equal temp
 variable	fijMOP_lower equal c_fij_lower[1]
