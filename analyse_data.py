@@ -1,33 +1,49 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import glob
 
-restartfile = "{:d}"
-children = []
-disp = 0.0; Pxy = 0.0
-count = 0
-dt = 0.005
-#mother = np.genfromtxt("mother.txt")
 
-folders = glob.glob("study/ttcfmirror*")
-folders.sort()
+def read_data(fdir="study", dt=0.005, plot=True, limit=None):
 
-for readfile in folders:
+    #Get all folders
+    folders = glob.glob(fdir+"/ttcfmirror*")
+    folders.sort()
 
-    try:
-        print("Reading file ", readfile.replace("mirror","") , " and mirror")
-        mirror = np.genfromtxt(readfile + "/output.txt")
-        path = np.genfromtxt(readfile.replace("mirror","") + "/output.txt")
+    if limit != None:
+        folders = folders[:limit]
 
-        Pxy += mirror[:,2]-mirror[:,3]
-        Pxy += path[:,2]-path[:,3]
-        disp += mirror[:,4]-mirror[:,5]
-        disp += path[:,4]-path[:,5]
-        count += 2
-    except IOError:
-        print(readfile + " fails")
+    count=0
+    ft = True
+    for readfile in folders:
 
-plt.plot(dt*path[:,0], disp/count)
-plt.plot(dt*path[:,0], Pxy/count)
-plt.show()
+        try:
+            print("Reading file ", readfile.replace("mirror","") , " and mirror")
+            mirror = np.genfromtxt(readfile + "/output.txt")
+            path = np.genfromtxt(readfile.replace("mirror","") + "/output.txt")
 
+            if ft:
+                firstpath = path 
+                ave = np.zeros(path.shape)
+                ft=False
+
+            #Add each mirrored pair together
+            ave += mirror+path
+            count += 2
+        except IOError:
+            print(readfile + " fails")
+        except ValueError:
+            print(readfile + " fails")
+
+    if plot:
+        import matplotlib.pyplot as plt
+        plt.plot(dt*firstpath[:,0], ave[:,5]/count, 'r-')
+        plt.plot(dt*firstpath[:,0], ave[:,6]/count, 'r--')
+        plt.plot(dt*firstpath[:,0], ave[:,2]/count, 'k-')
+        plt.plot(dt*firstpath[:,0], ave[:,3]/count, 'b-')
+        plt.plot(dt*firstpath[:,0], ave[:,4]/count, 'g-')
+        plt.show()
+
+    return ave/count
+
+
+if __name__ == "__main__":
+    ave = read_data(plot=True)

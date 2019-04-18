@@ -1,14 +1,14 @@
 # sample LAMMPS input script for viscosity of 3d LJ liquid
 # use tethered shearing wall, thermostat via fix langevin
 
-#This is needed for bulk runs to allow job sizing 
+#This is needed for bulk  run 100000
 processors 1 1 1
 
 #System parameters
 variable	rho equal 0.8442
 variable    T equal 1.0
 variable	rc equal 1.122462
-variable	srate equal 0.075  #Assume channel height 7.5
+variable	srate equal 0.0
 
 # Domain size and walls
 variable	x equal 5
@@ -20,7 +20,7 @@ variable    wallwidth equal 0.3
 variable	ylo equal -${wallwidth}
 variable	yhi equal ${y}+${wallwidth}
 
-#Thermostatted region wall
+#Thermostatted region outer half of wall
 variable	ythemlo equal ${ylo}
 variable	ythemhi equal ${yhi}
 
@@ -40,7 +40,8 @@ boundary		p f p
 
 pair_style      lj/cut ${rc}
 bond_style      harmonic
-read_data       branch300.dat   #output_equil.dat
+
+read_data       final_mother.dat
 region		    latticeregion block INF INF ${ylo} ${yhi} INF INF
 
 
@@ -69,50 +70,41 @@ velocity	    lowersites set -${srate} 0.0 0.0 units box
 
 #Get liquid molecules to a flow group
 group		    flow subtract all wall sites
-compute		    temperatureupper all temp/partial 0 1 1
-compute		    temperaturelower all temp/partial 0 1 1
 
 fix             1 flow nve
 fix             2 uppertherm nvt temp $T $T $(100.0*dt)
 fix             3 lowertherm nvt temp $T $T $(100.0*dt)
+
+compute		    temperatureupper all temp/partial 0 1 1
+compute		    temperaturelower all temp/partial 0 1 1
 fix_modify      2 temp temperatureupper
 fix_modify      3 temp temperaturelower
 
-#Set wall sites to not interact with anything but
-#allow then to move so wall speed "srate" is applied
 fix		        4 uppersites setforce 0.0 0.0 0.0
 fix		        5 lowersites setforce 0.0 0.0 0.0
-fix             6 uppersites nve
-fix             7 lowersites nve
 
-# MOP stress
-#compute         fij_upper flow group/group upper pair yes
-#compute         fij_lower flow group/group lower pair yes
-compute         MOP_upper all stress/mop y 7.0 total
-compute         MOP_center all stress/mop y center total
-compute         MOP_lower all stress/mop y 1.0 total
+thermo          1000
+thermo_style	custom step temp epair etotal press pxy
+
+#Steps between output for child trajectory
+variable Ninloop equal   300
 
 # Dissipation function (bond force part)
 compute         thether_lower lowersites group/group lower molecule intra
 compute         thether_upper uppersites group/group upper molecule intra
+variable 	    step equal step
+variable	    dissipation_lower equal c_thether_lower[1]
+variable	    dissipation_upper equal c_thether_upper[1]
+fix		        6 all print 1 "${step} ${dissipation_lower} ${dissipation_upper}" file disp.dat screen no 
 
-thermo          1000
-thermo_style	custom step temp epair etotal press pxy c_MOP_upper[1] c_MOP_lower[1] c_MOP_center[1]  c_thether_lower[1] c_thether_upper[1]
+#Loop over lots of input cases
+label loop
+variable index loop   4
 
-variable 	step equal step
-variable 	temp equal temp
-variable	MOP_lower equal c_MOP_lower[1]
-variable	MOP_upper equal c_MOP_upper[1]
-variable	MOP_center equal c_MOP_center[1]
-variable	dissipation_lower equal c_thether_lower[1]
-variable	dissipation_upper equal c_thether_upper[1]
-variable	pxy equal pxy
+    run   ${Ninloop}
+    write_data    branch*.dat
+    
+next index
+jump SELF loop
 
-fix		8 all print 1 "${step} ${temp} ${MOP_lower} ${MOP_center} ${MOP_upper} ${pxy}" file output.txt screen no 
-
-#dump            3 all dcd 1 vmd_out.dcd
-#fix 9 all ave/chunk 5 40 1000 layers density/mass vx temp  c_MOP[1] c_MOP[2] c_MOP[3] file profile.wall.2d
-
-
-run	           2000
-
+write_data final_mother.dat
