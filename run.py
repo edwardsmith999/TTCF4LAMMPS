@@ -7,6 +7,8 @@ import glob
 import shutil
 import cPickle as pickle
 
+from branch_utils import phase_space_map
+
 # Import symwraplib
 sys.path.insert(0, "./SimWrapPy/")
 try:
@@ -17,63 +19,6 @@ except ImportError:
     print(downloadout)
     sys.path.insert(0, "./SimWrapPy")
     import simwraplib as swl
-
-
-def ms(s):
-    return str(-float(s))
-
-def phase_space_map(restartfile, maptype="flipymompos"):
-    nl = 0; nlv = 0
-    with open(restartfile, "r") as f:
-        with open("mirror_"+restartfile, "w+") as g:
-            for l in f:
-                #Get number of atoms
-                if "atoms" in l:
-                    N = int(l.replace("atoms",""))
-                #For Atoms, rewrite the next N records 
-                if "Atoms" in l and "pos" in maptype:
-                   nl = N
-                #For velocities, rewrite the next N records 
-                if "Velocities" in l:
-                    nlv = N
-                #Flip domain extents as well
-                if "flipymompos" in maptype and "ylo" in l:
-                    a = l.split()
-                    g.write(   ms(a[1]) + " " + ms(a[0]) + " " 
-                            + a[2] + " " + a[3] + "\n" )
-                #If next line (nlv) is not zero, adapt/write this line
-                elif nl != 0:
-                    #Error handling here to skip any non-position records
-                    try:
-                        a = l.split()
-                        if "flipymompos" in maptype:
-                            g.write(  a[0] + " " + a[1]+ " " 
-                                    + a[2] + " " + a[3]+ " " 
-                                    + a[4]+ " " + ms(a[5]) + " " 
-                                    + a[6] + " " + a[7] + " " 
-                                    + a[8] + " " + a[9] + "\n")
-                        nl -= 1
-                    except IndexError:
-                        g.write(l)
-
-                #If next line (nlv) is not zero, adapt/write this line
-                elif nlv != 0:
-                    #Error handling here to skip any non-velocity records
-                    try:
-                        a = l.split()
-                        if "reflectmom" in maptype:
-                            g.write(a[0] + " " + ms(a[1]) 
-                                         + " " + ms(a[2])
-                                         + " " + ms(a[3]) + "\n")
-                        elif "flipymompos" in maptype:
-                            g.write(a[0] + " " + a[1]
-                                         + " " + ms(a[3])
-                                         + " " + a[2] + "\n")
-                        nlv -= 1
-                    except IndexError:
-                        g.write(l)
-                else:
-                    g.write(l)
 
 def rm_wildcard(string):
     for fl in glob.glob(string):
