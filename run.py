@@ -183,9 +183,9 @@ if __name__ == "__main__":
     #Run batches of mother and child trajectories to avoid
     #large numbers of created files
     rc=run_mother(Nequil=10000, Nruns=0, Ninloop=300, runcounter=0)
-    for i in range(200):
+    for i in range(2):
         print("runcounter = ", rc)
-        rc=run_mother(Nequil=0, Nruns=ncpus*20, Ninloop=300, runcounter=rc)
+        rc=run_mother(Nequil=0, Nruns=ncpus*1, Ninloop=300, runcounter=rc)
         run_children(ncpus=ncpus, studyfolder=studyfolder)
         #We need to store every bit of trajectory data
         results.append(read_data(fdir=studyfolder))

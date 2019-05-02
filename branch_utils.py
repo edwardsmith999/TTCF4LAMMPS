@@ -98,7 +98,7 @@ def get_bond_coeff(t):
     return float(cline.split()[1])
 
 
-def get_atoms(t, plotax=False, tethersites=[4, 5]):
+def get_atoms(t):
 
     #Get number of atoms
     i = t.find("atoms")
@@ -114,26 +114,25 @@ def get_atoms(t, plotax=False, tethersites=[4, 5]):
         atoms[int(n)-1,:] = np.array([float(x), float(y), float(z)])
         atomtype[int(n)-1] = int(atype)
 
-        #Plot atomic positions
-        if any(plotax != False):
-            if (atomtype[int(n)-1] in [4, 5]):
-                plotax[0].plot(atoms[int(n)-1,0], atoms[int(n)-1,1], 'rs')
-                plotax[1].plot(atoms[int(n)-1,2], atoms[int(n)-1,1], 'rs')
-            else:
-                plotax[0].plot(atoms[int(n)-1,0], atoms[int(n)-1,1], 'bo', alpha=0.5)
-                plotax[1].plot(atoms[int(n)-1,2], atoms[int(n)-1,1], 'bo', alpha=0.5)
-
     return atoms, atomtype
 
 def get_bonds(t, wrap_periodic=True, plotstuff=False, 
-              tethersites=[4, 5], topbotflipsign=False):
+              tethersites=[4, 5], topbotflipsign=True):
 
     #Plot
     if plotstuff:
         fig, ax = plt.subplots(1,2)
-        atoms, atomtype = get_atoms(t, plotax=ax)
-    else:
-        atoms, atomtype = get_atoms(t, plotax=False)
+
+    #Plot atomic positions    
+    atoms, atomtype = get_atoms(t)
+    if plotstuff:
+        for n in range(atoms.shape[0]):
+            if (atomtype[int(n)-1] in [4, 5]):
+                ax[0].plot(atoms[int(n)-1,0], atoms[int(n)-1,1], 'rs')
+                ax[1].plot(atoms[int(n)-1,2], atoms[int(n)-1,1], 'rs')
+            else:
+                ax[0].plot(atoms[int(n)-1,0], atoms[int(n)-1,1], 'bo', alpha=0.5)
+                ax[1].plot(atoms[int(n)-1,2], atoms[int(n)-1,1], 'bo', alpha=0.5)
 
     #Get number of bonds
     i = t.find("bonds")
@@ -182,11 +181,23 @@ def get_bonds(t, wrap_periodic=True, plotstuff=False,
 
     return bonds
 
-def get_dissipation(bonds, coeff):
+def get_force(bonds, coeff):
 
     F = coeff*np.sum(bonds,0)
 
     return F
+
+def get_dissipation(F, beta, Uwall):
+    
+    return 0.5*beta*Uwall*F
+
+def read_dissipation(fdir, T = 1.0, Uwall = 1.0):
+    t = texttostr(fdir)
+    bonds = get_bonds(t, plotstuff=True)
+    coeff = get_bond_coeff(t)
+    F = get_force(bonds, coeff)
+    return get_dissipation(F[0], 1./T, Uwall)
+
 
 if __name__ == "__main__":
 
@@ -195,8 +206,6 @@ if __name__ == "__main__":
     files.sort(key=getfilerec)
 
     for f in files:
-        t = texttostr(f)
-        bonds = get_bonds(t, plotstuff=True)
-        coeff = get_bond_coeff(t)
-        disp = get_dissipation(bonds, coeff)
+        bonds = get_bonds(texttostr(f))
+        disp = read_dissipation(f)
         print(f, np.sum(bonds,0), disp)
