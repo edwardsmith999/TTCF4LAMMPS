@@ -99,7 +99,7 @@ fix		        6 all print 1 "${step} ${dissipation_lower} ${dissipation_upper}" f
 
 #Loop over lots of input cases
 label loop
-variable index loop   4
+variable index loop   80
 
     run   ${Ninloop}
     write_data    branch*.dat

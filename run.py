@@ -106,20 +106,37 @@ def run_mother(basename="branch", basedir=None,
     if basedir == None:
         basedir = os.path.dirname(os.path.realpath(__file__)) + "/"
 
-    inputchanges={"variable Nequil equal":Nequil, 
-                  "variable Ninloop equal":Ninloop, 
-                  "variable index loop":Nruns,
-                  "    write_data INSTNCE1":basename+"*.dat"}
 
-    run = swl.LammpsRun(srcdir=None,
-                        basedir=basedir,
-                        rundir=basedir,
-                        executable='./lmp', #Relative in basedir
-                        inputfile='mother_restart.in', #Relative to basedir
-                        outputfile='mother.out',
-                        inputchanges=inputchanges)
+    #Run equilibration to create case
+    if Nequil != 0:
 
-    study = swl.Study([[run]], 1)
+        inputchanges={"variable Nequil equal":Nequil}
+
+        run = swl.LammpsRun(srcdir=None,
+                            basedir=basedir,
+                            rundir=basedir,
+                            executable='./lmp', #Relative in basedir
+                            inputfile='mother_equil.in', #Relative to basedir
+                            outputfile='mother_equil.out',
+                            inputchanges=inputchanges)
+
+        study = swl.Study([[run]], 1)
+
+    elif Nruns != 0:
+
+        inputchanges={"variable Ninloop equal":Ninloop, 
+                      "variable index loop":Nruns,
+                      "    write_data INSTNCE1":basename+"*.dat"}
+
+        run = swl.LammpsRun(srcdir=None,
+                            basedir=basedir,
+                            rundir=basedir,
+                            executable='./lmp', #Relative in basedir
+                            inputfile='mother_restart.in', #Relative to basedir
+                            outputfile='mother.out',
+                            inputchanges=inputchanges)
+
+        study = swl.Study([[run]], 1)
 
     #Backup disp.dat of dissipation function
     if runcounter != 0:
@@ -220,12 +237,13 @@ if __name__ == "__main__":
     results = []
     #Run batches of mother and child trajectories to avoid
     #large numbers of created files
-    rc=run_mother(Nequil=10000, Nruns=0, Ninloop=0,runcounter=0)
-    for i in range(3):
+    rc=run_mother(Nequil=10000, Nruns=0, Ninloop=300, runcounter=0)
+    for i in range(200):
         print("runcounter = ", rc)
-        rc=run_mother(Nequil=0, Nruns=ncpus, Ninloop=300, runcounter=rc)
+        rc=run_mother(Nequil=0, Nruns=ncpus*20, Ninloop=300, runcounter=rc)
         run_children(ncpus=ncpus, studyfolder=studyfolder)
-        results.append(read_data(plot=False))
+        #We need to store every bit of trajectory data
+        results.append(read_data(fdir=studyfolder))
         clean(folder=studyfolder)
         pickle.dump(results, open("TTCF_run.p","w+"))
 

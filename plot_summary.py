@@ -16,7 +16,7 @@ def read_disp(filebase="disp.datto", step=300):
     nrecs = nperfile*nfiles
     disp = np.zeros([nrecs, d.shape[1]])
     for i, f in enumerate(files):
-        print(i, i*step)
+        print(i, i*step, f)
         d = np.genfromtxt(f)
         startrec = getfilerec(f)
         disp[nperfile*i:nperfile*(i+1),0] = startrec+d[::step,0]
@@ -36,9 +36,9 @@ gamma = U/L
 Tinit = 1.0
 
 #Load data
-out = pickle.load(open("TTCF_run_bak.p", "r"))
+out = pickle.load(open("TTCF_run.p", "r"))
 alldata = np.array(out)
-data = np.mean(alldata, 0)
+data = np.mean(alldata, (0,1))
 T = data[:,1]
 MOPl = data[:,2]
 MOPc = data[:,3]
@@ -63,12 +63,12 @@ plt.show()
 # Get dissipation function of mother trajectory
 # and correlate with initial value
 disptb = read_disp()
-assert disp.shape[0] == alldata.shape[0]
-for i in range(disp.shape[0]):
-    disp = disptb[i,1] + disptb[i,2]
-    TTCF[i,:,:] = alldata[i,0,:] + alldata[i,:,:]*disp[i,1]
-
-
+ad = np.reshape(alldata,(disptb.shape[0],alldata.shape[-2],alldata.shape[-1]))
+assert disptb.shape[0] == alldata.shape[0]
+TTCF = np.zeros(ad.shape)
+for i in range(disptb.shape[0]):
+    #disp = disptb[i,1] + disptb[i,2]
+    TTCF[i,:,:] = ad[i,:,:]*disptb[i,1]
 
 
 ######################################
