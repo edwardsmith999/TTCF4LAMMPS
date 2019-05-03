@@ -27,17 +27,19 @@ These type 4 and type 5 atoms are then set to not interact with anything else (t
     fix                4 uppersites setforce 0.0 0.0 0.0
     fix                5 lowersites setforce 0.0 0.0 0.0
 
-The real particles are then tethered harmonically to these sites
+The real wall particles are then tethered harmonically to these sites
 
     bond_style       harmonic
     bond_coeff       1 150.0 0.0
     create_bonds     many lowersites lower 1 0.0 0.0001
     create_bonds     many uppersites upper 1 0.0 0.0001
 
-The sites themselves are given a motion and drag the particles. 
+The sites themselves are given a motion and so drag the particles. 
 
     velocity	    uppersites set ${srate} 0.0 0.0 units box
     velocity	    lowersites set -${srate} 0.0 0.0 units box
+
+Note that the wall particle themselves are not given any velocity.
 
 Quickstart
 ===========
@@ -45,35 +47,42 @@ Quickstart
 Mother
 ------
 
-First of all, we need to create the mother trajectory. We need to copy the LAMMPS executable to the current directory (or add to path). We will assume this is called lmp,
+We discuss the key parts of the mother.in files which create the branches to be used in the TTCF method. The rest of the file sets up a simple Couette flow example (wall described above, nose hoover thermostat). This can then be changed as needed to any other system setup.
 
+First of all, we need to equilibrate a molecular channel to be used as the initial file for the mother trajectory which generates a bunch of children. This assumes we have a copy of the LAMMPS executable in the current directory (or added to path), called lmp. The equilibration is run using,
 
-    mpiexec -n 1 ./lmp -in mother.in
+    mpiexec -n 1 ./lmp -in mother_equil.in
 
-This will run equilibration for 100000 steps and then loops in blocks of 300 creating the starting point for the child trajectories to branch off. 
-This can be seen in bottom of the mother.in as follows,
+This will run equilibration for 10000 steps, where the equilibration is run using mother_equil.in which creates the system and runs a number of timesteps, saving to final_mother.dat file.
+The actual running of this script can also be handled by the run.py file in the run_mother function.
+where Nequil is an input specifying how many timesteps to run for.
 
+Next, we read in the restart file from mother_equil.in called final_mother.dat, and then loops in blocks of Ninloop=300 creating the starting point for each child trajectories to branch off. The final step saves a new final_mother.dat based on the last step we got to. 
 
-    #Equilibration
-    run	           100000
-    write_data output_equil.dat
+For this run which creates a range of restart (branch) files for each of the child trajectories, we use
+        
+    mpiexec -n 1 ./lmp -in mother_restart.in
+
+The actual code for the blocks of runs creating branch files can be seen in bottom of the mother_restart.in as follows,
+
+    variable Ninloop equal   300
 
     #Loop over lots of input cases
     label loop
     variable index loop 1000
 
-        run	           300
-        write_data output*.dat
+        run	           ${Ninloop}
+        write_data    branch*.dat
         
     next index
     jump SELF loop
 
-The rest of the file sets up a Couette flow example, so this can be changed as needed to any other system setup.
+Again, the restart case can be managed using the run_mother function of run.py and the Ninloop and number of loops to run specified. 
 
 Children
 --------
 
-We then run a batch run starting from each of these trajectories (and its mirror) to create child runs using python code with simwraplib. You will need numpy installed then run.
+We then run a batch run starting from each of the branch.dat trajectories (and its mirror) to create child runs using python code with simwraplib. You will need numpy installed then run.
 
     python run_children.py
 
@@ -82,12 +91,19 @@ Tested with python 2.7. The number of jobs running in parallel can be set by cha
     #Number of processors to use
     ncpus = 6
 
-in run_children.py. This creates a folder called study which has each of the child runs with a file called 
+in run.py. This creates a folder called study which has each of the child runs with a file called 
 output.txt. The content of this is set in child.in
+
+In its current form, run.py saves the run data to a pickle file and also calculates dissipation from the initial condition file. Together these are the key quantities needed for the TTCF.
 
 
 Post Process
 ------------
+The output files from run.py create a pickle file of TTCF_run.p which has the dissipation function and a record of all time history of all outputs saved to output.txt in the child folder. From this, we can calculate the TTCF, with the key utilities for this saved in 
+
+    plot_summary.py
+
+
 Each of the child trajectories creates data in the study folder, the final result can be obtained by running
 
     analyse_data.py
