@@ -2,6 +2,7 @@ import cPickle as pickle
 import matplotlib.pyplot as plt
 import numpy as np
 import glob as glob
+from scipy import integrate
 
 def getfilerec(f):
     return int(f.replace("disp.datto",""))
@@ -34,41 +35,85 @@ L = Lmax - Lmin
 Re = rho * U * L / mu
 gamma = U/L
 Tinit = 1.0
+dt = 0.005
 
 #Load data
-out = pickle.load(open("TTCF_run.p", "r"))
-alldata = np.array(out)
-data = np.mean(alldata, (0,1))
+results, disp = pickle.load(open("TTCF_run.p", "r"))
+alldata = np.array(results)
+disp = np.array(disp)
+
+
+# Get ttcf integrand
+integrand = np.einsum('ij,ijkl->kl', disp, alldata)
+
+# Statistics improved by using
+# <disp(0)*B(s)> - <disp(0)>*<B(s)>
+integrand -= np.mean(disp)*np.mean(alldata,(0,1))
+for i in range(integrand.shape[1]):
+    TTCF[:,i] = integrate.cumtrapz(integrand[:,i])
+
+#Get average over all trajectories
+data = np.mean(alldata,(0,1))
 T = data[:,1]
 MOPl = data[:,2]
 MOPc = data[:,3]
 MOPu = data[:,4]
 beta = 1./Tinit
 Pxy = 0.5*beta*U*data[:,5]
-#displ = 0.5*beta*U*data[:,6]
+fijl = data[:,6]
+fiju = data[:,7]
+
 
 #Plot data
 fig, ax = plt.subplots(1,1)
 #ax.plot(T, label="T")
-ax.plot(MOPl, label="MOP lower")
-ax.plot(MOPc, label="MOP centre")
-ax.plot(MOPu, label="MOP upper")
+ax.plot(MOPl, 'k--', label="MOP lower")
+ax.plot(MOPc, 'b-', label="MOP centre")
+ax.plot(MOPu, 'k-', label="MOP upper")
 plt.legend()
-#ax2 = ax.twinx()
 ax.plot(Pxy, 'k-', label="Pxy Virial")
-#ax2.plot(displ, 'k--', label="Disp upper")
-plt.legend()
+
+#ax2 = ax.twinx()
+#ax2.plot(fijl, 'r-', label="fijl")
+#ax2.plot(fiju, 'r--', label="fiju")
+#plt.legend()
 plt.show()
+
+
+
+TTTCF = TTCF[:,1]
+MOPlTTCF = TTCF[:,2]
+MOPcTTCF = TTCF[:,3]
+MOPuTTCF = TTCF[:,4]
+PxyTTCF = 0.5*beta*U*TTCF[:,5]
+fijlTTCF = TTCF[:,6]
+fijuTTCF = TTCF[:,7]
+
+#Plot data
+fig, ax = plt.subplots(1,1)
+#ax.plot(T, label="T")
+ax.plot(MOPlTTCF, 'k--', label="MOP lower")
+ax.plot(MOPcTTCF, 'b-', label="MOP centre")
+ax.plot(MOPuTTCF, 'k-', label="MOP upper")
+plt.legend()
+ax.plot(PxyTTCF, 'k-', label="Pxy Virial")
+
+#ax2 = ax.twinx()
+#ax2.plot(fijlTTCF, 'r-', label="fijl")
+#ax2.plot(fijuTTCF, 'r--', label="fiju")
+#plt.legend()
+plt.show()
+
 
 # Get dissipation function of mother trajectory
 # and correlate with initial value
-disptb = read_disp()
-ad = np.reshape(alldata,(disptb.shape[0],alldata.shape[-2],alldata.shape[-1]))
-assert disptb.shape[0] == alldata.shape[0]
-TTCF = np.zeros(ad.shape)
-for i in range(disptb.shape[0]):
-    #disp = disptb[i,1] + disptb[i,2]
-    TTCF[i,:,:] = ad[i,:,:]*disptb[i,1]
+#disptb = read_disp()
+#ad = np.reshape(alldata,(disptb.shape[0],alldata.shape[-2],alldata.shape[-1]))
+#assert disptb.shape[0] == alldata.shape[0]
+#TTCF = np.zeros(ad.shape)
+#for i in range(disptb.shape[0]):
+#    #disp = disptb[i,1] + disptb[i,2]
+#    TTCF[i,:,:] = ad[i,:,:]*disptb[i,1]
 
 
 ######################################

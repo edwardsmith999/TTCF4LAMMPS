@@ -90,12 +90,12 @@ thermo_style	custom step temp epair etotal press pxy
 variable Ninloop equal   300
 
 # Dissipation function (bond force part)
-compute         thether_lower lowersites group/group lower molecule intra
-compute         thether_upper uppersites group/group upper molecule intra
-variable 	    step equal step
-variable	    dissipation_lower equal c_thether_lower[1]
-variable	    dissipation_upper equal c_thether_upper[1]
-fix		        6 all print 1 "${step} ${dissipation_lower} ${dissipation_upper}" file disp.dat screen no 
+#compute         thether_lower lowersites group/group lower molecule intra
+#compute         thether_upper uppersites group/group upper molecule intra
+#variable 	    step equal step
+#variable	    dissipation_lower equal c_thether_lower[1]
+#variable	    dissipation_upper equal c_thether_upper[1]
+#fix		        6 all print 1 "${step} ${dissipation_lower} ${dissipation_upper}" file disp.dat screen no 
 
 #Loop over lots of input cases
 label loop

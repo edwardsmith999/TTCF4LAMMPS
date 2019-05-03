@@ -191,9 +191,9 @@ def get_dissipation(F, beta, Uwall):
     
     return 0.5*beta*Uwall*F
 
-def read_dissipation(fdir, T = 1.0, Uwall = 1.0):
+def read_dissipation(fdir, T=1.0, Uwall=1.0, plotstuff=False):
     t = texttostr(fdir)
-    bonds = get_bonds(t, plotstuff=True)
+    bonds = get_bonds(t, plotstuff=plotstuff)
     coeff = get_bond_coeff(t)
     F = get_force(bonds, coeff)
     return get_dissipation(F[0], 1./T, Uwall)
