@@ -59,6 +59,8 @@ where Nequil is an input specifying how many timesteps to run for.
 
 Next, we read in the restart file from mother_equil.in called final_mother.dat, and then loops in blocks of Ninloop=300 creating the starting point for each child trajectories to branch off. The final step saves a new final_mother.dat based on the last step we got to. 
 
+![alt text](https://github.com/edwardsmith999/TTCF/blob/master/mother.png)
+
 For this run which creates a range of restart (branch) files for each of the child trajectories, we use
         
     mpiexec -n 1 ./lmp -in mother_restart.in
@@ -94,6 +96,8 @@ Tested with python 2.7. The number of jobs running in parallel can be set by cha
 in run.py. This creates a folder called study which has each of the child runs with a file called 
 output.txt. The content of this is set in child.in
 
+github.com/edwardsmith999/TTCF
+
 In its current form, run.py saves the run data to a pickle file and also calculates dissipation from the initial condition file. Together these are the key quantities needed for the TTCF.
 
 
@@ -101,7 +105,7 @@ Post Process
 ------------
 The output files from run.py create a pickle file of TTCF_run.p which has the dissipation function and a record of all time history of all outputs saved to output.txt in the child folder. From this, we can calculate the TTCF, with the key utilities for this saved in 
 
-    plot_summary.py
+![alt text](https://github.com/edwardsmith999/TTCF/blob/master/children.png)
 
 
 Each of the child trajectories creates data in the study folder, the final result can be obtained by running
@@ -111,7 +115,7 @@ Each of the child trajectories creates data in the study folder, the final resul
 which loops over the ttcf folders in the study directory and tries to average all of them.
 The output currently looks like this,
 
-![alt text](https://github.com/ImperialCollegeLondon/TTCF/blob/master/TTCF_out.png)
+![alt text](https://github.com/edwardsmith999/TTCF/blob/master/TTCF_out.png)
 
 
 Note there is an optional output can be switched on in mother,
