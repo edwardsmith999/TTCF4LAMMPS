@@ -207,5 +207,5 @@ if __name__ == "__main__":
 
     for f in files:
         bonds = get_bonds(texttostr(f))
-        disp = read_dissipation(f)
+        disp = read_dissipation(f, plotstuff=True)
         print(f, np.sum(bonds,0), disp)
