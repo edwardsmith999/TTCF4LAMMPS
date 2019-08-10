@@ -8,7 +8,7 @@ processors 1 1 1
 variable	rho equal 0.8442
 variable    T equal 1.0
 variable	rc equal 1.122462
-variable	srate equal 0.075  #Assume channel height 7.5
+variable	srate equal 0.005
 
 # Domain size and walls
 variable	x equal 5
@@ -41,19 +41,19 @@ boundary		p f p
 pair_style      lj/cut ${rc}
 bond_style      harmonic
 read_data       branch300.dat   #output_equil.dat
-region		    latticeregion block INF INF ${ylo} ${yhi} INF INF
+region		    latticeregion block INF INF ${ylo} ${yhi} INF INF units box
 
 
 #Set wall region
-region		    lower block INF INF ${ylo} 0.0 INF INF
-region		    upper block INF INF ${y} ${yhi} INF INF
+region		    lower block INF INF ${ylo} 0.0 INF INF units box
+region		    upper block INF INF ${y} ${yhi} INF INF units box
 group		    lower type 2
 group		    upper type 3
 group		    wall union lower upper
 
 #Set thermostatting region
-region		    lowertherm block INF INF ${ylo} 0.0 INF INF
-region		    uppertherm block INF INF ${y} ${yhi} INF INF
+region		    lowertherm block INF INF ${ylo} 0.0 INF INF units box
+region		    uppertherm block INF INF ${y} ${yhi} INF INF units box
 group		    lowertherm type 2
 group		    uppertherm type 3
 group           nottherm subtract all lowertherm uppertherm

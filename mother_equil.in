@@ -4,6 +4,14 @@
 #This is needed for bulk  run 100000
 processors 1 1 1
 
+#Basic simulation setup
+units		    lj
+dimension	    3
+atom_style      full 
+neigh_modify	delay 0 every 1
+boundary		p f p
+
+
 #System parameters
 variable	rho equal 0.8442
 variable    T equal 1.0
@@ -31,18 +39,12 @@ variable	yhibuf equal ${yhi}+${buf}
 
 #types  fluidtype 1 lowertype 2 uppertype 3 lowersitetype 4 uppersitetype 5
 
-#Basic simulation setup
-units		    lj
-dimension	    3
-atom_style      full 
-neigh_modify	delay 0 every 1
-boundary		p f p
 
 #Add a padded buffer at top and bottom as tethering allows molecules to wander slightly
 lattice         fcc ${rho}
-region          simbox block 0 $x ${ylobuf} ${yhibuf} 0 $z 
+region          simbox block 0 $x ${ylobuf} ${yhibuf} 0 $z units box
 create_box      5 simbox bond/types 1 extra/bond/per/atom 1
-region		    latticeregion block INF INF ${ylo} ${yhi} INF INF
+region		    latticeregion block INF INF ${ylo} ${yhi} INF INF units box
 create_atoms    1 region latticeregion
 
 #Create lj pair styles and set wall/site terms to zero
@@ -53,8 +55,8 @@ pair_coeff      2 4 0.0 0.0
 pair_coeff      3 5 0.0 0.0
 
 #Set wall region
-region		    lower block INF INF ${ylo} 0.0 INF INF
-region		    upper block INF INF ${y} ${yhi} INF INF
+region		    lower block INF INF ${ylo} 0.0 INF INF units box
+region		    upper block INF INF ${y} ${yhi} INF INF units box
 group		    lower region lower
 group		    upper region upper
 set		        group lower type 2
@@ -62,8 +64,8 @@ set		        group upper type 3
 group		    wall union lower upper
 
 #Set thermostatting region
-region		    lowertherm block INF INF ${ylo} 0.0 INF INF
-region		    uppertherm block INF INF ${y} ${yhi} INF INF
+region		    lowertherm block INF INF ${ylo} 0.0 INF INF units box
+region		    uppertherm block INF INF ${y} ${yhi} INF INF units box
 group		    lowertherm region lowertherm
 group		    uppertherm region uppertherm
 group           nottherm subtract all lowertherm uppertherm
@@ -102,7 +104,7 @@ thermo          1000
 thermo_style	custom step temp epair etotal press pxy
 
 #fix 6 all ave/chunk 5 40 1000 layers density/mass vx temp  c_stress[1] c_stress[2]  c_stress[3]  c_stress[4] file profile.wall.2d
-#dump            3 all dcd 10 vmd_out.dcd
+dump            3 all dcd 10 vmd_out.dcd
 
 #Equilibration
 variable Nequil equal   10000

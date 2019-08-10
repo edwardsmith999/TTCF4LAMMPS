@@ -42,19 +42,19 @@ pair_style      lj/cut ${rc}
 bond_style      harmonic
 
 read_data       final_mother.dat
-region		    latticeregion block INF INF ${ylo} ${yhi} INF INF
+region		    latticeregion block INF INF ${ylo} ${yhi} INF INF units box
 
 
 #Set wall region
-region		    lower block INF INF ${ylo} 0.0 INF INF
-region		    upper block INF INF ${y} ${yhi} INF INF
+region		    lower block INF INF ${ylo} 0.0 INF INF units box
+region		    upper block INF INF ${y} ${yhi} INF INF units box
 group		    lower type 2
 group		    upper type 3
 group		    wall union lower upper
 
 #Set thermostatting region
-region		    lowertherm block INF INF ${ylo} 0.0 INF INF
-region		    uppertherm block INF INF ${y} ${yhi} INF INF
+region		    lowertherm block INF INF ${ylo} 0.0 INF INF units box
+region		    uppertherm block INF INF ${y} ${yhi} INF INF units box
 group		    lowertherm type 2
 group		    uppertherm type 3
 group           nottherm subtract all lowertherm uppertherm
