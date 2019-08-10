@@ -49,8 +49,9 @@ integrand = np.einsum('ij,ijkl->kl', disp, alldata)
 # Statistics improved by using
 # <disp(0)*B(s)> - <disp(0)>*<B(s)>
 integrand -= np.mean(disp)*np.mean(alldata,(0,1))
+TTCF = np.empty(integrand.shape)
 for i in range(integrand.shape[1]):
-    TTCF[:,i] = integrate.cumtrapz(integrand[:,i])
+    TTCF[:-1,i] = integrate.cumtrapz(integrand[:,i])
 
 #Get average over all trajectories
 data = np.mean(alldata,(0,1))
@@ -67,11 +68,11 @@ fiju = data[:,7]
 #Plot data
 fig, ax = plt.subplots(1,1)
 #ax.plot(T, label="T")
-ax.plot(MOPl, 'k--', label="MOP lower")
+ax.plot(MOPl, 'k-', label="MOP lower")
 ax.plot(MOPc, 'b-', label="MOP centre")
-ax.plot(MOPu, 'k-', label="MOP upper")
+ax.plot(MOPu, 'r-', label="MOP upper")
+ax.plot(Pxy, 'g-', label="Pxy Virial")
 plt.legend()
-ax.plot(Pxy, 'k-', label="Pxy Virial")
 
 #ax2 = ax.twinx()
 #ax2.plot(fijl, 'r-', label="fijl")
@@ -94,9 +95,9 @@ fig, ax = plt.subplots(1,1)
 #ax.plot(T, label="T")
 ax.plot(MOPlTTCF, 'k--', label="MOP lower")
 ax.plot(MOPcTTCF, 'b-', label="MOP centre")
-ax.plot(MOPuTTCF, 'k-', label="MOP upper")
+ax.plot(MOPuTTCF, 'r-', label="MOP upper")
+ax.plot(PxyTTCF, 'g-', label="Pxy Virial")
 plt.legend()
-ax.plot(PxyTTCF, 'k-', label="Pxy Virial")
 
 #ax2 = ax.twinx()
 #ax2.plot(fijlTTCF, 'r-', label="fijl")

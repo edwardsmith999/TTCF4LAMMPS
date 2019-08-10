@@ -99,7 +99,7 @@ variable Ninloop equal   300
 
 #Loop over lots of input cases
 label loop
-variable index loop   4
+variable index loop   600
 
     run   ${Ninloop}
     write_data    branch*.dat

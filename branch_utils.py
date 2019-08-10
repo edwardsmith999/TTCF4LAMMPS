@@ -4,8 +4,9 @@ import matplotlib.pyplot as plt
 """
     A set of tools to manipulate the LAMMPS restart files
     written by a master trajectory for children in TTCF.
-    This includes making phase space mirrors, extracting the 
-    dissipation function and 
+    This includes making phase space mirrors, extracting 
+    atom and bonds properties and getting the dissipation 
+    function 
 """
 
 
@@ -182,13 +183,10 @@ def get_bonds(t, wrap_periodic=True, plotstuff=False,
     return bonds
 
 def get_force(bonds, coeff):
-
     F = coeff*np.sum(bonds,0)
-
     return F
 
 def get_dissipation(F, beta, Uwall):
-    
     return 0.5*beta*Uwall*F
 
 def read_dissipation(fdir, T=1.0, Uwall=1.0, plotstuff=False):
@@ -198,7 +196,6 @@ def read_dissipation(fdir, T=1.0, Uwall=1.0, plotstuff=False):
     F = get_force(bonds, coeff)
     return get_dissipation(F[0], 1./T, Uwall)
 
-
 if __name__ == "__main__":
 
     import glob
@@ -207,5 +204,5 @@ if __name__ == "__main__":
 
     for f in files:
         bonds = get_bonds(texttostr(f))
-        disp = read_dissipation(f)
+        disp = read_dissipation(f, plotstuff=True)
         print(f, np.sum(bonds,0), disp)
