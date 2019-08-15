@@ -107,7 +107,7 @@ def get_atoms(t):
 
     #Find location of atoms
     i = t.find("Atoms")
-    recs = t[i:].split("\n")[2:Natoms]
+    recs = t[i:].split("\n")[2:Natoms+2]
     atoms = np.zeros([Natoms,3])
     atomtype = np.zeros([Natoms])
     for r in recs:
@@ -145,7 +145,7 @@ def get_bonds(t, wrap_periodic=True, plotstuff=False,
 
     #Get location of bonds
     i = t.find("Bonds")
-    recs = t[i:].split("\n")[2:Nbonds]
+    recs = t[i:].split("\n")[2:Nbonds+2]
     bonds = np.zeros([Nbonds,3])
     for r in recs:
         n, _, i, j = r.split()
@@ -155,6 +155,7 @@ def get_bonds(t, wrap_periodic=True, plotstuff=False,
         elif (atomtype[int(i)-1] in tethersites):
             bonds[int(n)-1,:] = atoms[int(j)-1,:] - atoms[int(i)-1,:]
         else:
+            print(i,j,atomtype[int(j)-1], atomtype[int(i)-1])
             raise IOError("Read bond is not Tethered atom")
 
         if wrap_periodic:
