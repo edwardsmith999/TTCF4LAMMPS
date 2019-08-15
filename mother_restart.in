@@ -11,10 +11,10 @@ variable	rc equal 1.122462
 variable	srate equal 0.0
 
 # Domain size and walls
-variable	x equal 5
-variable	y equal 6
-variable	z equal 5
-variable    wallwidth equal 0.3
+variable	x equal 30
+variable	y equal 5.2
+variable	z equal 30
+variable    wallwidth equal 0.8
 
 # Set outside of domain to be wall
 variable	ylo equal -${wallwidth}
@@ -99,7 +99,7 @@ variable Ninloop equal   300
 
 #Loop over lots of input cases
 label loop
-variable index loop   600
+variable index loop   200
 
     run   ${Ninloop}
     write_data    branch*.dat

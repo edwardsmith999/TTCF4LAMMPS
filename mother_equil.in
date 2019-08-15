@@ -19,10 +19,10 @@ variable	rc equal 1.122462
 variable	srate equal 0.0
 
 # Domain size and walls
-variable	x equal 5
-variable	y equal 6
-variable	z equal 5
-variable    wallwidth equal 0.3
+variable	x equal 30
+variable	y equal 5.2
+variable	z equal 30
+variable    wallwidth equal 0.8
 
 # Set outside of domain to be wall
 variable	ylo equal -${wallwidth}
@@ -104,10 +104,10 @@ thermo          1000
 thermo_style	custom step temp epair etotal press pxy
 
 #fix 6 all ave/chunk 5 40 1000 layers density/mass vx temp  c_stress[1] c_stress[2]  c_stress[3]  c_stress[4] file profile.wall.2d
-dump            3 all dcd 10 vmd_out.dcd
+#dump            3 all dcd 1 vmd_out.dcd
 
 #Equilibration
-variable Nequil equal   10000
+variable Nequil equal   100000
 
 run   ${Nequil}
 write_data output_equil.dat
