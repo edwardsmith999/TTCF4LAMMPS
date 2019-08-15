@@ -20,7 +20,7 @@ variable	srate equal 0.0
 
 # Domain size and walls
 variable	x equal 5
-variable	y equal 5
+variable	y equal 6
 variable	z equal 5
 variable    wallwidth equal 0.3
 
