@@ -39,8 +39,9 @@ def read_data(fdir="study", limit=None):
         try:
             print("Reading file ", readfile.replace("mirror","") , " and mirror")
             mirror = np.genfromtxt(readfile + "/output.txt")
+            data.append(mirror)
             path = np.genfromtxt(readfile.replace("mirror","") + "/output.txt")
-            data.append(path + mirror)
+            data.append(path)
         except IOError:
             print(readfile + " fails")
         except ValueError:
@@ -79,6 +80,17 @@ def average_data(fdir="study", dt=0.005, plot=True, limit=None):
 
     return ave/count
 
+
+def correlate_time(A, rng=None, skip=1):
+
+    if rng == None:
+        rng = int(A.shape[0]/2.)
+
+    autocorrel = np.zeros(rng)
+    for shift in range(0, rng-1, skip): 
+        autocorrel += A[shift]*A[shift:shift+rng]
+
+    return autocorrel
 
 
 if __name__ == "__main__":
