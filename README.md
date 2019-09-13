@@ -41,6 +41,21 @@ The sites themselves are given a motion and so drag the particles.
 
 Note that the wall particle themselves are not given any velocity.
 
+In order to obtain the required quantities from the MD, the x component of force between the wall tethering bonds and the tethering site, the LAMMPS `compute_bond_local` is used. However, this only returns the magnitude of force and not the components.
+As a result, we need to patch LAMMPS to allow a statement of the form,
+
+    group wallandsites union sites wall
+    compute fx wallandsites bond/local fx
+    compute sumfx all reduce sum c_fx
+
+which gets the sum of the bonds between walls and sites in the x direction. 
+The patch for lammps is provided in the repository, which can be applied by copying to the lammps/src directory and applied with,
+
+    git apply lammps_bond_local.patch
+
+This has been submitted as a pull request to the main LAMMPS branch (https://github.com/lammps/lammps/pull/1667) and will be included in the 2019 Autumn/Winter release.
+
+
 Quickstart
 ===========
 
