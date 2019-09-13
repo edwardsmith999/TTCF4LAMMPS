@@ -1,0 +1,84 @@
+diff --git a/doc/src/compute_bond_local.txt b/doc/src/compute_bond_local.txt
+index 6055d28..8897417 100644
+--- a/doc/src/compute_bond_local.txt
++++ b/doc/src/compute_bond_local.txt
+@@ -15,10 +15,11 @@ compute ID group-ID bond/local value1 value2 ... keyword args ... :pre
+ ID, group-ID are documented in "compute"_compute.html command :ulb,l
+ bond/local = style name of this compute command :l
+ one or more values may be appended :l
+-value = {dist} or {engpot} or {force} or {engvib} or {engrot} or {engtrans} or {omega} or {velvib} or {v_name} :l
++value = {dist} or {engpot} or {force} or {fx} or {fy} or {fz} or {engvib} or {engrot} or {engtrans} or {omega} or {velvib} or {v_name} :l
+   {dist} = bond distance
+   {engpot} = bond potential energy
+   {force} = bond force :pre
++  {fx},{fy},{fz} = components of bond force
+   {engvib} = bond kinetic energy of vibration
+   {engrot} = bond kinetic energy of rotation
+   {engtrans} = bond kinetic energy of translation
+@@ -38,6 +39,7 @@ keyword = {set} :l
+ 
+ compute 1 all bond/local engpot
+ compute 1 all bond/local dist engpot force :pre
++compute 1 all bond/local dist fx fy fz :pre
+ compute 1 all angle/local dist v_distsq set dist d :pre
+ 
+ [Description:]
+@@ -59,6 +61,9 @@ based on the current separation of the pair of atoms in the bond.
+ The value {force} is the magnitude of the force acting between the
+ pair of atoms in the bond.
+ 
++The values {fx}, {fy}, and {fz} are the xyz components of
++{force} between the pair of atoms in the bond.
++
+ The remaining properties are all computed for motion of the two atoms
+ relative to the center of mass (COM) velocity of the 2 atoms in the
+ bond.
+diff --git a/src/compute_bond_local.cpp b/src/compute_bond_local.cpp
+index d579772..e14f188 100644
+--- a/src/compute_bond_local.cpp
++++ b/src/compute_bond_local.cpp
+@@ -33,7 +33,7 @@ using namespace LAMMPS_NS;
+ #define DELTA 10000
+ #define EPSILON 1.0e-12
+ 
+-enum{DIST,VELVIB,OMEGA,ENGTRANS,ENGVIB,ENGROT,ENGPOT,FORCE,VARIABLE};
++enum{DIST,VELVIB,OMEGA,ENGTRANS,ENGVIB,ENGROT,ENGPOT,FORCE,FX,FY,FZ,VARIABLE};
+ 
+ /* ---------------------------------------------------------------------- */
+ 
+@@ -64,6 +64,9 @@ ComputeBondLocal::ComputeBondLocal(LAMMPS *lmp, int narg, char **arg) :
+     if (strcmp(arg[iarg],"dist") == 0) bstyle[nvalues++] = DIST;
+     else if (strcmp(arg[iarg],"engpot") == 0) bstyle[nvalues++] = ENGPOT;
+     else if (strcmp(arg[iarg],"force") == 0) bstyle[nvalues++] = FORCE;
++    else if (strcmp(arg[iarg],"fx") == 0) bstyle[nvalues++] = FX;
++    else if (strcmp(arg[iarg],"fy") == 0) bstyle[nvalues++] = FY;
++    else if (strcmp(arg[iarg],"fz") == 0) bstyle[nvalues++] = FZ;
+     else if (strcmp(arg[iarg],"engvib") == 0) bstyle[nvalues++] = ENGVIB;
+     else if (strcmp(arg[iarg],"engrot") == 0) bstyle[nvalues++] = ENGROT;
+     else if (strcmp(arg[iarg],"engtrans") == 0) bstyle[nvalues++] = ENGTRANS;
+@@ -127,7 +130,8 @@ ComputeBondLocal::ComputeBondLocal(LAMMPS *lmp, int narg, char **arg) :
+   singleflag = 0;
+   velflag = 0;
+   for (int i = 0; i < nvalues; i++) {
+-    if (bstyle[i] == ENGPOT || bstyle[i] == FORCE) singleflag = 1;
++    if (bstyle[i] == ENGPOT || bstyle[i] == FORCE || bstyle[i] == FX       || 
++        bstyle[i] == FY     || bstyle[i] == FZ) singleflag = 1;
+     if (bstyle[i] == VELVIB || bstyle[i] == OMEGA || bstyle[i] == ENGTRANS ||
+         bstyle[i] == ENGVIB || bstyle[i] == ENGROT) velflag = 1;
+   }
+@@ -393,6 +397,15 @@ int ComputeBondLocal::compute_bonds(int flag)
+           case FORCE:
+             ptr[n] = sqrt(rsq)*fbond;
+             break;
++          case FX:
++            ptr[n] = dx*fbond;
++            break;
++          case FY:
++            ptr[n] = dy*fbond;
++            break;
++          case FZ:
++            ptr[n] = dz*fbond;
++            break;
+           case ENGVIB:
+             ptr[n] = engvib;
+             break;

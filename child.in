@@ -11,9 +11,9 @@ variable	rc equal 1.122462
 variable	srate equal 0.025
 
 # Domain size and walls
-variable	x equal 30
+variable	x equal 8
 variable	y equal 5.2
-variable	z equal 30
+variable	z equal 8
 variable    wallwidth equal 0.8
 
 # Set outside of domain to be wall
@@ -63,6 +63,11 @@ group		    lowersites type 4
 group		    uppersites type 5
 group		    sites union lowersites uppersites
 
+
+group		    wallandsites_upper union lowersites lower
+group		    wallandsites_lower union uppersites upper
+group		    wallandsites union sites wall
+
 #Set wall sliding
 velocity	    uppersites set ${srate} 0.0 0.0 units box
 velocity	    lowersites set -${srate} 0.0 0.0 units box
@@ -86,13 +91,20 @@ fix             6 uppersites nve
 fix             7 lowersites nve
 
 # MOP stress
-compute         MOP_upper all stress/mop y 7.0 total
-compute         MOP_center all stress/mop y center total
-compute         MOP_lower all stress/mop y 1.0 total
+compute         MOP_upper all stress/mop y 4.5 conf
+compute         MOP_center all stress/mop y 2.6 conf
+compute         MOP_lower all stress/mop y 0.5 conf
 # Getting wall fluid interactions should give the same as the configurational
 # MOP plane between wall/liquid (and kinetic should be zero)
 compute         fij_upper flow group/group upper pair yes
 compute         fij_lower flow group/group lower pair yes
+
+
+compute fx_upper wallandsites_upper bond/local fx
+compute sumfx_upper all reduce sum c_fx_upper
+compute fx_lower wallandsites_lower bond/local fx
+compute sumfx_lower all reduce sum c_fx_lower
+
 
 variable 	step equal step
 variable 	temp equal temp
@@ -102,20 +114,11 @@ variable	MOP_center equal c_MOP_center[1]
 variable	fij_upper equal c_fij_upper[1]
 variable	fij_lower equal c_fij_lower[1]
 variable	pxy equal pxy
+variable	sumfx_lower equal c_sumfx_lower
+variable	sumfx_upper equal c_sumfx_upper
 
+fix		8 all print 1 "${step} ${temp} ${MOP_lower} ${MOP_center} ${MOP_upper} ${pxy} ${fij_lower} ${fij_upper} ${sumfx_lower} ${sumfx_upper}" file output.txt screen no 
 
-# Dissipation function (bond force part)
-#compute         thether_lower lowersites group/group lower molecule intra
-#compute         thether_upper uppersites group/group upper molecule intra
-#variable	dissipation_lower equal c_thether_lower[1]
-#variable	dissipation_upper equal c_thether_upper[1]
-
-
-#thermo          1000
-#thermo_style	custom step temp epair etotal press pxy c_MOP_upper[1] c_MOP_lower[1] c_MOP_center[1]  c_thether_lower[1] c_thether_upper[1]
-
-
-fix		8 all print 1 "${step} ${temp} ${MOP_lower} ${MOP_center} ${MOP_upper} ${pxy} ${fij_lower} ${fij_upper}" file output.txt screen no 
 
 #dump            3 all dcd 1 vmd_out.dcd
 #fix 9 all ave/chunk 5 40 1000 layers density/mass vx temp  c_MOP[1] c_MOP[2] c_MOP[3] file profile.wall.2d
