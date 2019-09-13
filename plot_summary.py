@@ -42,6 +42,22 @@ results, disp = pickle.load(open("TTCF_run.p", "r"))
 alldata = np.array(results)
 disp = np.array(disp)
 
+#Start with Bernadi style plot of Direct AVeraging (DAV) data
+d = np.mean(alldata,(0,1))
+s = np.std(alldata,(0,1))/np.sqrt(alldata.shape[0]*alldata.shape[1])
+t = np.linspace(0.,alldata.shape[2]*dt,alldata.shape[2])
+plt.errorbar(t, d[:,5], s[:,5], errorevery=50, ecolor="k", capsize=2)
+
+#dF is difference between force over top and bottom
+# used for TTCF in 
+# Delhommelle and Cummings (2005) PHYSICAL REVIEW B 72, 172201
+dF = (alldata[:,:,:,6]-alldata[:,:,:,7])
+a_dF0dF = np.einsum('ij,ijk->k', dF[:,:,0], dF[:,:,:])
+a_dF0 = np.mean(dF[:,:,0])
+a_dF = np.mean(dF[:,:,:], (0,1))
+inint = a_dF0dF - a_dF0*a_dF
+plt.plot(-np.array([integrate.simps(inint[:i]/S**2, dx=dt) for i in range(1,inint.shape[0])]))
+plt.show()
 
 # Get ttcf integrand
 integrand = np.einsum('ij,ijkl->kl', disp, alldata)
