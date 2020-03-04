@@ -130,8 +130,11 @@ Each of the child trajectories creates data in the study folder, the final resul
 which loops over the ttcf folders in the study directory and tries to average all of them.
 The output currently looks like this,
 
-![alt text](https://github.com/edwardsmith999/TTCF/blob/master/TTCF_out.png)
+![alt text](https://github.com/edwardsmith999/TTCF/blob/master/TTCF_fijwall_dispfn.png)
 
+![alt text](https://github.com/edwardsmith999/TTCF/blob/master/TTCF_MOP_VIrial.png)
+
+![alt text](https://github.com/edwardsmith999/TTCF/blob/master/Delhomm_DAV_vs_TTCF.png)
 
 Note there is an optional output can be switched on in mother,
 
