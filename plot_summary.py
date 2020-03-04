@@ -28,46 +28,84 @@ def read_disp(filebase="disp.datto", step=300):
 #Set constants
 mu = 1.7
 rho = 0.8442
-U = 1
-Lmin = 1.0
-Lmax = 7.5
+U = 0.025
+Lmin = 0.3
+Lmax = 5.3
 L = Lmax - Lmin
 Re = rho * U * L / mu
-gamma = U/L
+gamma = 2.*U/L
 Tinit = 1.0
 dt = 0.005
+Lx = 30.
+Lz = 30.
+A = Lx*Lz
 
 #Load data
-results, disp = pickle.load(open("TTCF_run.p", "r"))
-alldata = np.array(results)
-disp = np.array(disp)
+# step, temp, MOP_lower, MOP_center, MOP_upper, Virial_Pxy, 
+# liquid_solid_fij_lower, liquid_solid_fij_upper, 
+# sum thether_Fx_lower, sum thether_Fx_upper
+alldata = np.load("./outfile.npy") #np.array(pickle.load(open("TTCF_run.p", "r")))
 
-#Start with Bernadi style plot of Direct AVeraging (DAV) data
-d = np.mean(alldata,(0,1))
-s = np.std(alldata,(0,1))/np.sqrt(alldata.shape[0]*alldata.shape[1])
-t = np.linspace(0.,alldata.shape[2]*dt,alldata.shape[2])
-plt.errorbar(t, d[:,5], s[:,5], errorevery=50, ecolor="k", capsize=2)
+#Split mirror and original
+mp = alldata.reshape([alldata.shape[0],alldata.shape[1]/2,2,
+                      alldata.shape[2],alldata.shape[3]])
 
-#dF is difference between force over top and bottom
-# used for TTCF in 
-# Delhommelle and Cummings (2005) PHYSICAL REVIEW B 72, 172201
-dF = (alldata[:,:,:,6]-alldata[:,:,:,7])
-a_dF0dF = np.einsum('ij,ijk->k', dF[:,:,0], dF[:,:,:])
-a_dF0 = np.mean(dF[:,:,0])
-a_dF = np.mean(dF[:,:,:], (0,1))
-inint = a_dF0dF - a_dF0*a_dF
-plt.plot(-np.array([integrate.simps(inint[:i]/S**2, dx=dt) for i in range(1,inint.shape[0])]))
-plt.show()
+#Extract quantities
+T = mp[:,:,:,:,1]
+beta = 1./T
+MOP_lower = mp[:,:,:,:,2]
+MOP_center = mp[:,:,:,:,3]
+MOP_upper = mp[:,:,:,:,4]
+Virial_Pxy = mp[:,:,:,:,5]
+liquid_solid_fij_lower = mp[:,:,:,:,6]/A
+liquid_solid_fij_upper = mp[:,:,:,:,7]/A
+liquid_solid_fij = liquid_solid_fij_upper - liquid_solid_fij_lower
+disp_lower = -0.5*beta*gamma*L*mp[:,:,:,:,8]
+disp_upper = 0.5*beta*gamma*L*mp[:,:,:,:,9]
+disp = disp_upper+disp_lower
+disp0 = disp[:,:,:,0]
 
-# Get ttcf integrand
-integrand = np.einsum('ij,ijkl->kl', disp, alldata)
+# Get ttcf integrand, sum over batches [0], child trajectories [1] and mirror pairs [2]
+integrand = np.einsum('ijm,ijmkl->kl', disp0, mp)/(mp.shape[0]*mp.shape[1]*mp.shape[2])
 
 # Statistics improved by using
 # <disp(0)*B(s)> - <disp(0)>*<B(s)>
-integrand -= np.mean(disp)*np.mean(alldata,(0,1))
+integrand -= np.mean(disp0)*np.mean(mp,(0,1,2))
+
+#Dissipation function used can be corresponding one for upper and lower surface if not average quantity
+# Lower surface
+for i in [2,6,8]: 
+    integrand[:,i] = np.einsum('ijm,ijmk->k', disp_lower[:,:,:,0], mp[:,:,:,:,i])/(mp.shape[0]*mp.shape[1]*mp.shape[2])
+    integrand[:,i] -= np.mean(disp_lower[:,:,:,0])*np.mean(mp[:,:,:,:,i],(0,1,2))
+# Upper surface
+for i in [4,7,9]:
+    integrand[:,i] = np.einsum('ijm,ijmk->k', disp_upper[:,:,:,0], mp[:,:,:,:,i])/(mp.shape[0]*mp.shape[1]*mp.shape[2])
+    integrand[:,i] -= np.mean(disp_upper[:,:,:,0])*np.mean(mp[:,:,:,:,i],(0,1,2))
+
+#Get TTCF by integrating function
 TTCF = np.empty(integrand.shape)
 for i in range(integrand.shape[1]):
-    TTCF[:-1,i] = integrate.cumtrapz(integrand[:,i])
+    TTCF[:-1,i] = integrate.cumtrapz(integrand[:,i], dx=dt)
+
+#Gives pretty much the same as a looped simpsons integral
+#TTCFs = np.empty(integrand.shape)
+#for i in range(integrand.shape[1]):
+#    for j in range(1,integrand.shape[0]):
+#        TTCFs[j,i] = integrate.simps(integrand[:j,i], dx=dt)
+
+#Add mean of initial value (skip this as it just adds noise)
+#TTCF += np.mean(mp[:,:,:,0,:],(0,1,2))
+
+#Save TTCF quantities with names
+TTTCF = TTCF[:,1]
+MOPlTTCF = TTCF[:,2]
+MOPcTTCF = TTCF[:,3]
+MOPuTTCF = TTCF[:,4]
+PxyTTCF = TTCF[:,5]
+fijlTTCF = TTCF[:,6]
+fijuTTCF = TTCF[:,7]
+displTTCF = TTCF[:,8]
+dispuTTCF = TTCF[:,9]
 
 #Get average over all trajectories
 data = np.mean(alldata,(0,1))
@@ -75,52 +113,44 @@ T = data[:,1]
 MOPl = data[:,2]
 MOPc = data[:,3]
 MOPu = data[:,4]
-beta = 1./Tinit
-Pxy = 0.5*beta*U*data[:,5]
+Pxy = data[:,5]
 fijl = data[:,6]
 fiju = data[:,7]
-
-
-#Plot data
-fig, ax = plt.subplots(1,1)
-#ax.plot(T, label="T")
-ax.plot(MOPl, 'k-', label="MOP lower")
-ax.plot(MOPc, 'b-', label="MOP centre")
-ax.plot(MOPu, 'r-', label="MOP upper")
-ax.plot(Pxy, 'g-', label="Pxy Virial")
-plt.legend()
-
-#ax2 = ax.twinx()
-#ax2.plot(fijl, 'r-', label="fijl")
-#ax2.plot(fiju, 'r--', label="fiju")
-#plt.legend()
-plt.show()
-
-
-
-TTTCF = TTCF[:,1]
-MOPlTTCF = TTCF[:,2]
-MOPcTTCF = TTCF[:,3]
-MOPuTTCF = TTCF[:,4]
-PxyTTCF = 0.5*beta*U*TTCF[:,5]
-fijlTTCF = TTCF[:,6]
-fijuTTCF = TTCF[:,7]
+displ = data[:,8]
+dispu = data[:,9]
 
 #Plot data
-fig, ax = plt.subplots(1,1)
-#ax.plot(T, label="T")
-ax.plot(MOPlTTCF, 'k--', label="MOP lower")
-ax.plot(MOPcTTCF, 'b-', label="MOP centre")
-ax.plot(MOPuTTCF, 'r-', label="MOP upper")
-ax.plot(PxyTTCF, 'g-', label="Pxy Virial")
-plt.legend()
+t = np.linspace(0.,alldata.shape[2]*dt,alldata.shape[2])
+fig, ax = plt.subplots(2,1)
+ax[0].plot(t, MOPl, 'k-', label="MOP lower")
+ax[0].plot(t, MOPc, 'b-', label="MOP centre")
+ax[0].plot(t, MOPu, 'r-', label="MOP upper")
+ax[0].plot(t, Pxy, 'g-', label="Pxy Virial")
 
-#ax2 = ax.twinx()
-#ax2.plot(fijlTTCF, 'r-', label="fijl")
-#ax2.plot(fijuTTCF, 'r--', label="fiju")
-#plt.legend()
+ax[1].plot(t, MOPlTTCF, 'k--', label="TTCF MOP lower")
+ax[1].plot(t, MOPcTTCF, 'b-', label="TTCFMOP centre")
+ax[1].plot(t, MOPuTTCF, 'r-', label="TTCFMOP upper")
+ax[1].plot(t, PxyTTCF, 'g-', label="TTCFPxy Virial")
+
+ax[0].legend()
+ax[1].legend()
 plt.show()
 
+fig, ax = plt.subplots(2,1)
+ax[0].plot(t, fijl/A, 'k-', label="fijl")
+ax[0].plot(t, fiju/A, 'b-', label="fiju")
+ax[0].plot(t, fijlTTCF/A, 'r-', label="TTCF fijl")
+ax[0].plot(t, fijuTTCF/A, 'g-', label="TTCF fiju")
+
+
+ax[1].plot(t, displ/A, 'k-', label="displ")
+ax[1].plot(t, dispu/A, 'b-', label="dispu")
+ax[1].plot(t, displTTCF/A, 'r-', label="TTCF displ")
+ax[1].plot(t, dispuTTCF/A, 'g-', label="TTCF dispu")
+
+ax[0].legend()
+ax[1].legend()
+plt.show()
 
 # Get dissipation function of mother trajectory
 # and correlate with initial value
@@ -131,6 +161,26 @@ plt.show()
 #for i in range(disptb.shape[0]):
 #    #disp = disptb[i,1] + disptb[i,2]
 #    TTCF[i,:,:] = ad[i,:,:]*disptb[i,1]
+
+
+#Bernadi style plot of Direct AVeraging (DAV) data
+fig, ax = plt.subplots(1,1)
+d = np.mean(Virial_Pxy,(0,1,2))
+s = np.std(Virial_Pxy,(0,1,2))/np.sqrt(Virial_Pxy.shape[0]*Virial_Pxy.shape[1])
+t = np.linspace(0.,Virial_Pxy.shape[3]*dt,Virial_Pxy.shape[3])
+plt.errorbar(t, d[:], s[:], errorevery=50, ecolor="k", capsize=2)
+
+#dF is difference between force over top and bottom
+# used for TTCF in 
+# Delhommelle and Cummings (2005) PHYSICAL REVIEW B 72, 172201
+#ax2 = ax.twinx()
+dF = (alldata[:,:,:,7]-alldata[:,:,:,6])*L/A
+a_dF0dF = np.einsum('ij,ijk->k', dF[:,:,0], dF[:,:,:])/(dF.shape[0]*dF.shape[1])
+a_dF0 = np.mean(dF[:,:,0])
+a_dF = np.mean(dF[:,:,:], (0,1))
+inint = a_dF0dF - a_dF0*a_dF
+ax.plot(t[:-1], -np.array([integrate.simps(inint[:i], dx=dt) for i in range(1,inint.shape[0])]),'r-')
+plt.show()
 
 
 ######################################
