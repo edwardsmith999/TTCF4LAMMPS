@@ -64,8 +64,8 @@ group		    uppersites type 5
 group		    sites union lowersites uppersites
 
 
-group		    wallandsites_upper union lowersites lower
-group		    wallandsites_lower union uppersites upper
+group		    wallandsites_lower union uppersites lower
+group		    wallandsites_upper union lowersites upper
 group		    wallandsites union sites wall
 
 #Set wall sliding
@@ -91,9 +91,10 @@ fix             6 uppersites nve
 fix             7 lowersites nve
 
 # MOP stress
-compute         MOP_upper all stress/mop y 4.5 conf
-compute         MOP_center all stress/mop y 2.6 conf
 compute         MOP_lower all stress/mop y 0.5 conf
+compute         MOP_center all stress/mop y 2.6 conf
+compute         MOP_upper all stress/mop y 4.5 conf
+
 # Getting wall fluid interactions should give the same as the configurational
 # MOP plane between wall/liquid (and kinetic should be zero)
 compute         fij_upper flow group/group upper pair yes
@@ -109,20 +110,20 @@ compute sumfx_lower all reduce sum c_fx_lower
 variable 	step equal step
 variable 	temp equal temp
 variable	MOP_lower equal c_MOP_lower[1]
-variable	MOP_upper equal c_MOP_upper[1]
 variable	MOP_center equal c_MOP_center[1]
-variable	fij_upper equal c_fij_upper[1]
-variable	fij_lower equal c_fij_lower[1]
+variable	MOP_upper equal c_MOP_upper[1]
 variable	pxy equal pxy
+variable	fij_lower equal c_fij_lower[1]
+variable	fij_upper equal c_fij_upper[1]
 variable	sumfx_lower equal c_sumfx_lower
 variable	sumfx_upper equal c_sumfx_upper
 
+#Run for zero steps to generate initial file (No longer needed in latest LAMMPS since
+# commit hash 1955c57791b276f580f83eafe9eb5567ee3fab2d on the 12th Nov 2019)
+#fix		8 all print 1 "${step} ${temp} ${MOP_lower} ${MOP_center} ${MOP_upper} ${pxy} ${fij_lower} ${fij_upper} ${sumfx_lower} ${sumfx_upper}" file initial.txt screen no 
+#run 0
+
+#Then run for child trajectory
 fix		8 all print 1 "${step} ${temp} ${MOP_lower} ${MOP_center} ${MOP_upper} ${pxy} ${fij_lower} ${fij_upper} ${sumfx_lower} ${sumfx_upper}" file output.txt screen no 
-
-
-#dump            3 all dcd 1 vmd_out.dcd
-#fix 9 all ave/chunk 5 40 1000 layers density/mass vx temp  c_MOP[1] c_MOP[2] c_MOP[3] file profile.wall.2d
-
-
 run	           2000
 
