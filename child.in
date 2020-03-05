@@ -11,9 +11,9 @@ variable	rc equal 1.122462
 variable	srate equal 0.025
 
 # Domain size and walls
-variable	x equal 8
+variable	x equal 30
 variable	y equal 5.2
-variable	z equal 8
+variable	z equal 30
 variable    wallwidth equal 0.8
 
 # Set outside of domain to be wall
