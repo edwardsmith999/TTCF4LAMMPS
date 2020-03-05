@@ -123,18 +123,29 @@ The output files from run.py create a pickle file of TTCF_run.p which has the di
 ![alt text](https://github.com/edwardsmith999/TTCF/blob/master/children.png)
 
 
-Each of the child trajectories creates data in the study folder, the final result can be obtained by running
+Each of the child trajectories creates data in the study folder, the result can be read into Python by scripts in,
 
     analyse_data.py
 
-which loops over the ttcf folders in the study directory and tries to average all of them.
-The output currently looks like this,
+which loop over the ttcf folders in the study directory and averages all of them.
+The entire trajectory histories are saved by run.py to a Numpy binary file, which can be processed as follows
 
-![alt text](https://github.com/edwardsmith999/TTCF/blob/master/TTCF_fijwall_dispfn.png)
+    plot_summary.py
+
+which gives the following output,
 
 ![alt text](https://github.com/edwardsmith999/TTCF/blob/master/TTCF_MOP_VIrial.png)
 
+The MOP and Virial stresses obtained directly from the average over all trajectories (here 40,000 in total using 20,000 mirror. 
+Note there is still a difference in magnitude between the TTCF and direct so they are plotted on different figures. 
+
+![alt text](https://github.com/edwardsmith999/TTCF/blob/master/TTCF_fijwall_dispfn.png)
+
+The sum of the force between liquid and wall molecules (fij) and the dissipation function (forces in the x direction between wall tethering sites and molecules), both directly averaged and obtained using the TTCF
+
 ![alt text](https://github.com/edwardsmith999/TTCF/blob/master/Delhomm_DAV_vs_TTCF.png)
+
+Delta F, the difference between top and bottom forcing between wall and fluid. 
 
 Note there is an optional output can be switched on in mother,
 
