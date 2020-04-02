@@ -90,9 +90,9 @@ fix             6 uppersites nve
 fix             7 lowersites nve
 
 # MOP stress
-compute         MOP_lower all stress/mop y 0.5 conf
+compute         MOP_lower all stress/mop y 0.0 conf
 compute         MOP_center all stress/mop y 2.6 conf
-compute         MOP_upper all stress/mop y 4.5 conf
+compute         MOP_upper all stress/mop y 5.2 conf
 
 # Getting wall fluid interactions should give the same as the configurational
 # MOP plane between wall/liquid (and kinetic should be zero)
