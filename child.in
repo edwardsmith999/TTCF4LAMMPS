@@ -63,9 +63,8 @@ group		    lowersites type 4
 group		    uppersites type 5
 group		    sites union lowersites uppersites
 
-
-group		    wallandsites_lower union uppersites lower
-group		    wallandsites_upper union lowersites upper
+group		    wallandsites_lower union lowersites lower
+group		    wallandsites_upper union uppersites upper
 group		    wallandsites union sites wall
 
 #Set wall sliding
