@@ -28,7 +28,7 @@ def read_disp(filebase="disp.datto", step=300):
 #Set constants
 mu = 1.7
 rho = 0.8442
-U = 0.025
+U = 0.00025
 Lmin = 0.3
 Lmax = 5.3
 L = Lmax - Lmin
@@ -41,14 +41,51 @@ Lz = 30.
 A = Lx*Lz
 
 #Load data
-# step, temp, MOP_lower, MOP_center, MOP_upper, Virial_Pxy, 
+# alldata shape = [batches, trajectories, time, quantities]
+# The [batches] are batches of trajectories 
+# [Trajectories] are pairs of mirrored child trajectories from a single
+#                mother trajectory run over a number of steps 
+# The [time] is the time histroy of the child trajectory
+# The [quantities] are as follows:
+# step, temperature, MOP_lower, MOP_center, MOP_upper, Virial_Pxy, 
 # liquid_solid_fij_lower, liquid_solid_fij_upper, 
-# sum thether_Fx_lower, sum thether_Fx_upper
-alldata = np.load("./outfile.npy") #np.array(pickle.load(open("TTCF_run.p", "r")))
+# sum tether_Fx_lower, sum tether_Fx_upper
+# MOP_direct_lower MOP_direct_center MOP_direct_upper
+# pyy fij_direct_lower fij_direct_upper
+alldata = np.load("./outfile.npy") 
+
+t = np.linspace(0.,alldata.shape[2]*dt,alldata.shape[2])
+
+#Get average over all trajectories
+data = np.mean(alldata,(0,1))
+T = data[:,1]
+MOPl = data[:,2]
+MOPc = data[:,3]
+MOPu = data[:,4]
+Pxy = data[:,5]
+fijl = data[:,6]
+fiju = data[:,7]
+displ = data[:,8]
+dispu = data[:,9]
+
+#Get error over all trajectories
+error = np.std(alldata,(0,1))/np.sqrt(alldata.shape[0]*alldata.shape[1])
+Te = error[:,1]
+MOPle = error[:,2]
+MOPce = error[:,3]
+MOPue = error[:,4]
+Pxye = error[:,5]
+fijle = error[:,6]
+fijue = error[:,7]
+disple = error[:,8]
+dispue = error[:,9]
+
+dF = (alldata[:,:,:,7]-alldata[:,:,:,6])*L/A
 
 #Split mirror and original
 mp = alldata.reshape([alldata.shape[0],alldata.shape[1]/2,2,
                       alldata.shape[2],alldata.shape[3]])
+del alldata
 
 #Extract quantities
 T = mp[:,:,:,:,1]
@@ -87,6 +124,8 @@ TTCF = np.empty(integrand.shape)
 for i in range(integrand.shape[1]):
     TTCF[:-1,i] = integrate.cumtrapz(integrand[:,i], dx=dt)
 
+del integrand
+
 #Gives pretty much the same as a looped simpsons integral
 #TTCFs = np.empty(integrand.shape)
 #for i in range(integrand.shape[1]):
@@ -96,36 +135,54 @@ for i in range(integrand.shape[1]):
 #Add mean of initial value (skip this as it just adds noise)
 #TTCF += np.mean(mp[:,:,:,0,:],(0,1,2))
 
-#Save TTCF quantities with names
-TTTCF = TTCF[:,1]
-MOPlTTCF = TTCF[:,2]
-MOPcTTCF = TTCF[:,3]
-MOPuTTCF = TTCF[:,4]
-PxyTTCF = TTCF[:,5]
-fijlTTCF = TTCF[:,6]
-fijuTTCF = TTCF[:,7]
-displTTCF = TTCF[:,8]
-dispuTTCF = TTCF[:,9]
 
-#Get average over all trajectories
-data = np.mean(alldata,(0,1))
-T = data[:,1]
-MOPl = data[:,2]
-MOPc = data[:,3]
-MOPu = data[:,4]
-Pxy = data[:,5]
-fijl = data[:,6]
-fiju = data[:,7]
-displ = data[:,8]
-dispu = data[:,9]
+#Keep all trajectories
+integrand_alldata = np.einsum('ijm,ijmkl->ijmkl', disp0, mp)
+TTCF_alldata = np.empty(integrand_alldata.shape)
+for i in range(integrand_alldata.shape[-1]):
+    TTCF_alldata[:,:,:,:-1,i] = integrate.cumtrapz(integrand_alldata[:,:,:,:,i], dx=dt)
+
+del integrand_alldata
+
+#Save TTCF quantities with names
+TTCF_data = np.mean(TTCF_alldata,(0,1,2))
+TTTCF = TTCF_data[:,1]
+MOPlTTCF = TTCF_data[:,2]
+MOPcTTCF = TTCF_data[:,3]
+MOPuTTCF = TTCF_data[:,4]
+PxyTTCF = TTCF_data[:,5]
+fijlTTCF = TTCF_data[:,6]
+fijuTTCF = TTCF_data[:,7]
+displTTCF = TTCF_data[:,8]
+dispuTTCF = TTCF_data[:,9]
+
+#Get TTCF error over all trajectories
+TTCF_error = np.std(TTCF_alldata,(0,1,2))/np.sqrt(TTCF_alldata.shape[0]*TTCF_alldata.shape[1]*TTCF_alldata.shape[2])
+TTTCFe = TTCF_error[:,1]
+MOPlTTCFe = TTCF_error[:,2]
+MOPcTTCFe = TTCF_error[:,3]
+MOPuTTCFe = TTCF_error[:,4]
+PxyTTCFe = TTCF_error[:,5]
+fijlTTCFe = TTCF_error[:,6]
+fijuTTCFe = TTCF_error[:,7]
+displTTCFe = TTCF_error[:,8]
+dispuTTCFe = TTCF_error[:,9]
+
+del TTCF_alldata
+
+#Plot virials
+fig, ax = plt.subplots(1,1)
+ax.errorbar(t, Pxy, Pxye, errorevery=50, color="b", ecolor='k', label="Virial DAV")
+ax.errorbar(t, PxyTTCF, PxyTTCFe, errorevery=50, color="r", ecolor='k', label="Virial TTCF")
+ax.legend()
+plt.show()
 
 #Plot data
-t = np.linspace(0.,alldata.shape[2]*dt,alldata.shape[2])
 fig, ax = plt.subplots(2,1)
-ax[0].plot(t, MOPl, 'k-', label="MOP lower")
-ax[0].plot(t, MOPc, 'b-', label="MOP centre")
-ax[0].plot(t, MOPu, 'r-', label="MOP upper")
-ax[0].plot(t, Pxy, 'g-', label="Pxy Virial")
+ax[0].plot(t, MOPl, color='k', label="MOP lower")
+ax[0].plot(t, MOPc, color='b', label="MOP centre")
+ax[0].plot(t, MOPu, color='r', label="MOP upper")
+ax[0].plot(t, Pxy, color='g', label="Pxy Virial")
 
 ax[1].plot(t, MOPlTTCF, 'k--', label="TTCF MOP lower")
 ax[1].plot(t, MOPcTTCF, 'b-', label="TTCFMOP centre")
@@ -137,16 +194,20 @@ ax[1].legend()
 plt.show()
 
 fig, ax = plt.subplots(2,1)
-ax[0].plot(t, fijl/A, 'k-', label="fijl")
-ax[0].plot(t, fiju/A, 'b-', label="fiju")
-ax[0].plot(t, fijlTTCF/A, 'r-', label="TTCF fijl")
-ax[0].plot(t, fijuTTCF/A, 'g-', label="TTCF fiju")
+ax[0].plot(t, fijl/A - fiju/A, 'k-', label="fij wall")
+ax[0].plot(t, fijlTTCF/A - fijuTTCF/A, 'r-', label="TTCF fij wall")
+ax[1].plot(t, displ/A - dispu/A, 'k-', label="disp")
+ax[1].plot(t, displTTCF/A - dispuTTCF/A, 'r-', label="TTCF disp")
 
+#ax[0].plot(t, fijl/A, 'k-', label="fijl")
+#ax[0].plot(t, fiju/A, 'b-', label="fiju")
+#ax[0].plot(t, fijlTTCF/A, 'r-', label="TTCF fijl")
+#ax[0].plot(t, fijuTTCF/A, 'g-', label="TTCF fiju")
 
-ax[1].plot(t, displ/A, 'k-', label="displ")
-ax[1].plot(t, dispu/A, 'b-', label="dispu")
-ax[1].plot(t, displTTCF/A, 'r-', label="TTCF displ")
-ax[1].plot(t, dispuTTCF/A, 'g-', label="TTCF dispu")
+#ax[1].plot(t, displ/A, 'k-', label="displ")
+#ax[1].plot(t, dispu/A, 'b-', label="dispu")
+#ax[1].plot(t, displTTCF/A, 'r-', label="TTCF displ")
+#ax[1].plot(t, dispuTTCF/A, 'g-', label="TTCF dispu")
 
 ax[0].legend()
 ax[1].legend()
@@ -167,14 +228,12 @@ plt.show()
 fig, ax = plt.subplots(1,1)
 d = np.mean(Virial_Pxy,(0,1,2))
 s = np.std(Virial_Pxy,(0,1,2))/np.sqrt(Virial_Pxy.shape[0]*Virial_Pxy.shape[1])
-t = np.linspace(0.,Virial_Pxy.shape[3]*dt,Virial_Pxy.shape[3])
 plt.errorbar(t, d[:], s[:], errorevery=50, ecolor="k", capsize=2)
 
 #dF is difference between force over top and bottom
 # used for TTCF in 
 # Delhommelle and Cummings (2005) PHYSICAL REVIEW B 72, 172201
 #ax2 = ax.twinx()
-dF = (alldata[:,:,:,7]-alldata[:,:,:,6])*L/A
 a_dF0dF = np.einsum('ij,ijk->k', dF[:,:,0], dF[:,:,:])/(dF.shape[0]*dF.shape[1])
 a_dF0 = np.mean(dF[:,:,0])
 a_dF = np.mean(dF[:,:,:], (0,1))

@@ -8,7 +8,7 @@ processors 1 1 1
 variable	rho equal 0.8442
 variable    T equal 1.0
 variable	rc equal 1.122462
-variable	srate equal 0.025
+variable	srate equal 0.00025
 
 # Domain size and walls
 variable	x equal 30
@@ -108,21 +108,28 @@ compute sumfx_lower all reduce sum c_fx_lower
 
 variable 	step equal step
 variable 	temp equal temp
+
+#Shear Components
 variable	MOP_lower equal c_MOP_lower[1]
 variable	MOP_center equal c_MOP_center[1]
 variable	MOP_upper equal c_MOP_upper[1]
 variable	pxy equal pxy
 variable	fij_lower equal c_fij_lower[1]
 variable	fij_upper equal c_fij_upper[1]
+
+#Dissipation function
 variable	sumfx_lower equal c_sumfx_lower
 variable	sumfx_upper equal c_sumfx_upper
 
-#Run for zero steps to generate initial file (No longer needed in latest LAMMPS since
-# commit hash 1955c57791b276f580f83eafe9eb5567ee3fab2d on the 12th Nov 2019)
-#fix		8 all print 1 "${step} ${temp} ${MOP_lower} ${MOP_center} ${MOP_upper} ${pxy} ${fij_lower} ${fij_upper} ${sumfx_lower} ${sumfx_upper}" file initial.txt screen no 
-#run 0
+#Direct components
+variable	MOP_d_lower equal c_MOP_lower[2]
+variable	MOP_d_center equal c_MOP_center[2]
+variable	MOP_d_upper equal c_MOP_upper[2]
+variable	pyy equal pyy
+variable	fij_d_lower equal c_fij_lower[2]
+variable	fij_d_upper equal c_fij_upper[2]
 
 #Then run for child trajectory
-fix		8 all print 1 "${step} ${temp} ${MOP_lower} ${MOP_center} ${MOP_upper} ${pxy} ${fij_lower} ${fij_upper} ${sumfx_lower} ${sumfx_upper}" file output.txt screen no 
+fix		8 all print 1 "${step} ${temp} ${MOP_lower} ${MOP_center} ${MOP_upper} ${pxy} ${fij_lower} ${fij_upper} ${sumfx_lower} ${sumfx_upper} ${MOP_d_lower} ${MOP_d_center} ${MOP_d_upper} ${pyy} ${fij_d_lower} ${fij_d_upper}" file output.txt screen no 
 run	           2000
 

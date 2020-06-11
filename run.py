@@ -190,7 +190,12 @@ if __name__ == "__main__":
     Nruns = 50 * ncpus
     studyfolder = "study"
     basename = "branch"
-    results = []; dissipations = []
+    outfile = "./outfile.npy"
+    restart = True
+    if restart:
+         results = list(np.load(outfile))
+    else:
+        results = []
     #Run batches of mother and child trajectories to avoid
     #large numbers of files being created
     rc, _ = run_mother(basename=basename, Nequil=Nequil, Nruns=0, 
@@ -223,5 +228,5 @@ if __name__ == "__main__":
         #Store Python pickle of data so far
         #pickle.dump(results, open("TTCF_run.p","w+"))
         #Use numpy save which is 3 time smaller and much faster
-        np.save("./outfile.npy")
+        np.save(outfile, np.array(results))
 
