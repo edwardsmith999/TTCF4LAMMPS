@@ -1,0 +1,12 @@
+include ./setup.in
+
+run   ${Nthermalization}
+
+write_data    equil_start.dat pair ij
+
+include ./slab.lmp
+include ./vel.lmp
+include ./force_equil.lmp
+
+#Run mother equilibration
+run   ${Equil_sampling}
