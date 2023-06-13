@@ -1,8 +1,8 @@
 #!/bin/bash
 
-NTasks=1000
+NTasks=3
 seed_file=seed.txt
-Child_No='100'
+Child_No='2'
 Shear_rate='0.01'
 exe=./lmp
 
@@ -13,15 +13,15 @@ do
 
     #Create trajectory structure for current batch of children
     mkdir batch$TASK_ID
-    cp mother.in batch$TASK_ID/mother.in
-    cp child.in batch$TASK_ID/child.in
-    cp slab.lmp batch$TASK_ID/slab.lmp
-    cp vel.lmp batch$TASK_ID/vel.lmp
-    cp force.lmp batch$TASK_ID/force.lmp
-    cp force_equil.lmp batch$TASK_ID/force_equil.lmp
-    cp sim_params.lmp batch$TASK_ID/sim_params.lmp
-    cp ${seed_file} batch$TASK_ID/${seed_file}
-
+    cp mother.in batch$TASK_ID/
+    cp child.in batch$TASK_ID/
+    cp slab.lmp batch$TASK_ID/
+    cp vel.lmp batch$TASK_ID/
+    cp force.lmp batch$TASK_ID/
+    cp force_equil.lmp batch$TASK_ID/
+    cp sim_params.lmp batch$TASK_ID/
+    cp ${seed_file} batch$TASK_ID/
+    cp ${exe} batch$TASK_ID/
 
     cd batch$TASK_ID
 
@@ -29,7 +29,7 @@ do
 
     #Run mother trajectory to create all children starting points
     mpirun -np 1 ${exe} -screen none -var rseed ${seed_v} -var Nchild "${Child_No}" -in mother.in 
-
+    
     #The total number of restart files generated to spawn children from
     for ((i=1;i<="${Child_No}";i++))
     do
@@ -41,7 +41,8 @@ do
         do
             #Run a child trajectory with 4 mappings (map handled in lammps input)
             mpirun -np 1 ${exe} -screen none -var map "${j}" -var child_index "${i}" -var srate "${Shear_rate}" -in child.in
-
+            #echo "mpi child"
         done
     done
+    cd ../
 done
