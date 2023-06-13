@@ -17,8 +17,8 @@ The lattice region includes both wall and liquid molecules, created with,
 
 We then define upper/lower to be the region which contains the wall atoms and create a duplicate set of molecules with type 4 and 5 to be bottom and top sites respectively:
 
-    create_atoms    4 region lower
-    create_atoms    5 region upper
+    create_atoms    2 region latticeregion
+    ...
     group            lowersites type 4
     group            uppersites type 5
 
@@ -40,9 +40,21 @@ The sites themselves are given a motion and so drag the particles.
     velocity	    lowersites set -${srate} 0.0 0.0 units box
 
 Note that the wall particle themselves are not given any velocity.
+In this way, the TTCF force adds in energy of the form 
 
-In order to obtain the required quantities from the MD, the x component of force between the wall tethering bonds and the tethering site, the LAMMPS `compute_bond_local` is used. However, this only returns the magnitude of force and not the components.
-As a result, we need to patch LAMMPS to allow a statement of the form,
+```math
+\dot{H}=\sum_ik(\textbf{r}^w_i-\textbf{r}^l_i)v
+```
+where the position of the wall site is $\textbf{r}^w_i$ and the position of the corresponding real molecule tethered to it is $\textbf{r}^l_i$. 
+The sliding speed of the wall $v$ is the value give by `${srate}` in the velocity statement above.
+
+In order to obtain the required quantities from the MD, the x component of force between the wall tethering bonds and the tethering site, the LAMMPS `compute_bond_local` is used. 
+
+
+** Historical note for pre-2019 LAMMPS**
+
+Onlythe magnitude of force and not the components was returned in LAMMPS prior to 2019.
+As a result, we needed to patch LAMMPS to allow a statement of the form,
 
     group wallandsites union sites wall
     compute fx wallandsites bond/local fx
@@ -53,7 +65,7 @@ The patch for lammps is provided in the repository, which can be applied by copy
 
     git apply lammps_bond_local.patch
 
-This has been submitted as a pull request to the main LAMMPS branch (https://github.com/lammps/lammps/pull/1667) and will be included in the 2019 Autumn/Winter release.
+This has been accepyed from the pull request to the main LAMMPS branch (https://github.com/lammps/lammps/pull/1667) as of the 2019 Autumn/Winter release.
 
 
 Quickstart
@@ -86,10 +98,10 @@ The actual code for the blocks of runs creating branch files can be seen in bott
 
     #Loop over lots of input cases
     label loop
-    variable index loop 1000
+    variable index loop   ${Nchild}
 
-        run	           ${Ninloop}
-        write_data    branch*.dat
+	    run   ${Ninloop}
+	    write_data    branch${index}.dat pair ij
         
     next index
     jump SELF loop
@@ -99,7 +111,22 @@ Again, the restart case can be managed using the run_mother function of run.py a
 Children
 --------
 
-We then run a batch run starting from each of the branch.dat trajectories (and its mirror) to create child runs using python code with simwraplib. You will need numpy installed then run.
+The children are then restarted from the various restart files created by the mother trajectory. We use phase space mirroring to generate complementary trajectories,
+
+```math
+\bigl(x_i\;,\;y_i\;,\;z_i\;,\;p_{xi}\;,\;p_{yi}\;,\;p_{zi}\bigr)&\longrightarrow\bigl(x_i\;,\;y_i\;,\;z_i\;,\;p_{xi}\;,\;p_{yi}\;,\;p_{zi}\bigr)\\
+\bigl(x_i\;,\;y_i\;,\;z_i\;,\;p_{xi}\;,\;p_{yi}\;,\;p_{zi}\bigr)&\longrightarrow\bigl(x_i\;,\;y_i\;,\;z_i\;,\;-p_{xi}\;,\;-p_{yi}\;,\;-p_{zi}\bigr)\\
+\bigl(x_i\;,\;y_i\;,\;z_i\;,\;p_{xi}\;,\;p_{yi}\;,\;p_{zi}\bigr)&\longrightarrow\bigl(-x_i\;,\;y_i\;,\;z_i\;,\;-p_{xi}\;,\;p_{yi}\;,\;p_{zi}\bigr)\\
+\bigl(x_i\;,\;y_i\;,\;z_i\;,\;p_{xi}\;,\;p_{yi}\;,\;p_{zi}\bigr)&\longrightarrow\bigl(-x_i\;,\;y_i\;,\;z_i\;,\;p_{xi}\;,\;-p_{yi}\;,\;-p_{zi}\bigr)\\
+```
+
+which we can imagine this as follows,
+
+![alt text](https://github.com/edwardsmith999/TTCF/blob/master/children.png)
+
+Only two mirrors per output are shown for clarity.
+
+To implement this, we want a batch run starting from each of the branch.dat trajectories to create child runs. 
 
     python run_children.py
 
@@ -119,8 +146,6 @@ In its current form, run.py saves the run data to a pickle file and also calcula
 Post Process
 ------------
 The output files from run.py create a pickle file of TTCF_run.p which has the dissipation function and a record of all time history of all outputs saved to output.txt in the child folder. From this, we can calculate the TTCF, with the key utilities for this saved in 
-
-![alt text](https://github.com/edwardsmith999/TTCF/blob/master/children.png)
 
 
 Each of the child trajectories creates data in the study folder, the result can be read into Python by scripts in,

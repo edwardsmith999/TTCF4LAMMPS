@@ -80,7 +80,7 @@ def run_mother(basename="branch", basedir=None,
                             basedir=basedir,
                             rundir=basedir,
                             executable='./lmp', #Relative in basedir
-                            inputfile='mother_restart.in', #Relative to basedir
+                            inputfile='mother_gen_branches.in', #Relative to basedir
                             outputfile='mother.out',
                             inputchanges=inputchanges)
 
@@ -157,9 +157,10 @@ def run_children(ncpus=6, basename="branch", basedir=None,
         rfile = changes[thread]["read_data"]
         if (os.path.isfile(rfile)):
             #Create corresponding mirror file
-            if not "mirror" in rfile:
-                phase_space_map(rfile,  maptype="reflectmom")
+            #if not "mirror" in rfile:
+            #    phase_space_map(rfile,  maptype="reflectmom")
 
+            #Mapping can be done in lammps input
             run = swl.LammpsRun(srcdir=None,
                                 basedir=basedir,
                                 rundir=rundir,

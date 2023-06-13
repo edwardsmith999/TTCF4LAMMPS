@@ -1,0 +1,23 @@
+##############center of mass velocity of the slab###############
+
+
+############# Bottom wall #############################
+variable vcmyb1  equal vcm(gb1,x)
+variable vcmyb2  equal vcm(gb2,x)
+variable vcmyb3  equal vcm(gb3,x)
+variable vcmyb4  equal vcm(gb4,x)
+variable vcmyb5  equal vcm(gb5,x)
+
+############ Top wall ###############################
+variable vcmyt1  equal vcm(gt1,x)
+variable vcmyt2  equal vcm(gt2,x)
+variable vcmyt3  equal vcm(gt3,x)
+variable vcmyt4  equal vcm(gt4,x)
+variable vcmyt5  equal vcm(gt5,x)
+
+
+############ Inner top layer ###############################
+variable vcmytoplayer  equal vcm(upper,x)
+
+############ Inner bottom layer ###############################
+variable vcmybottomlayer  equal vcm(lower,x)

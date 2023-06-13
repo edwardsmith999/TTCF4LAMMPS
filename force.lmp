@@ -1,0 +1,47 @@
+compute 	cfb1  gb1 group/group lowertherm pair yes  
+compute 	cfb2  gb2 group/group lowertherm pair yes  
+compute 	cfb3  gb3 group/group lowertherm pair yes  
+compute 	cfb4  gb4 group/group lowertherm pair yes  
+compute 	cfb5  gb5 group/group lowertherm pair yes  
+
+
+compute         cft1  gt1 group/group uppertherm pair yes  
+compute         cft2  gt2 group/group uppertherm pair yes  
+compute         cft3  gt3 group/group uppertherm pair yes  
+compute         cft4  gt4 group/group uppertherm pair yes  
+compute         cft5  gt5 group/group uppertherm pair yes  
+
+variable        KE atom vx*vx+vy*vy+vz*vz
+
+compute tlayers sys chunk/atom bin/1d y lower ${Bin_Width} units reduced
+compute temperatureflow sys temp/partial 0 1 1
+fix tProf   sys ave/chunk 1 1 ${Delay} tlayers density/number vx v_KE temp ave one bias temperatureflow adof 2 cdof 0 file Profile${child_index}_${map}.txt format %15.10g
+
+
+compute fu wallandsites_upper bond/local fx 
+compute sfx_u all reduce sum c_fu
+compute fl wallandsites_lower bond/local fx 
+compute sfx_l all reduce sum c_fl
+
+variable	fx_u equal c_sfx_u
+variable	fx_l equal c_sfx_l
+
+variable    Om1 equal  v_fx_u*${vwall}
+variable    Om2 equal -v_fx_l*${vwall}
+
+
+
+
+
+compute         MOP_1 all stress/mop y ${rupinterface} total
+compute         MOP_2 all stress/mop y ${rlowinterface} total
+
+
+variable pxy1 equal c_MOP_1[1]
+variable pxy2 equal c_MOP_2[1]
+
+
+
+fix   	fxvx all ave/time 1 1 ${Delay} c_cfb1[1] v_vcmyb1 c_cfb2[1] v_vcmyb2 c_cfb3[1] v_vcmyb3 c_cfb4[1] v_vcmyb4 c_cfb5[1] v_vcmyb5 c_cft1[1] v_vcmyt1 c_cft2[1] v_vcmyt2 c_cft3[1] v_vcmyt3 c_cft4[1] v_vcmyt4 c_cft5[1] v_vcmyt5 v_vcmybottomlayer v_vcmytoplayer v_pxy1 v_pxy2 v_Om1 v_Om2 file Output${child_index}_${map}.txt format %15.10g mode scalar                 
+        
+

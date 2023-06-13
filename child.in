@@ -1,35 +1,4 @@
-# sample LAMMPS input script for viscosity of 3d LJ liquid
-# use tethered shearing wall, thermostat via fix langevin
-
-#This is needed for bulk runs to allow job sizing 
 processors 1 1 1
-
-#System parameters
-variable	rho equal 0.8442
-variable    T equal 1.0
-variable	rc equal 1.122462
-variable	srate equal 0.00025
-
-# Domain size and walls
-variable	x equal 30
-variable	y equal 5.2
-variable	z equal 30
-variable    wallwidth equal 0.8
-
-# Set outside of domain to be wall
-variable	ylo equal -${wallwidth}
-variable	yhi equal ${y}+${wallwidth}
-
-#Thermostatted region wall
-variable	ythemlo equal ${ylo}
-variable	ythemhi equal ${yhi}
-
-#Add a buffer of empty space to prevent molecules moving too far they leave the domain
-variable	buf equal 2.0
-variable	ylobuf equal ${ylo}-${buf}
-variable	yhibuf equal ${yhi}+${buf}
-
-#types  fluidtype 1 lowertype 2 uppertype 3 lowersitetype 4 uppersitetype 5
 
 #Basic simulation setup
 units		    lj
@@ -38,27 +7,88 @@ atom_style      full
 neigh_modify	delay 0 every 1
 boundary		p f p
 
+include ./sim_params.lmp
+
+timestep ${Integration_step}
+
+variable    frac  equal 1-${rho_f}/${rho_w} 
+
+variable rlatt equal (4.0/${rho_w})^(1.0/3)
+
+variable totlayers equal ceil(2*${chwidth}/${rlatt})+2*${wlayers}
+
+variable    Lx equal ceil(${L}/${rlatt})
+variable    Lz equal ceil(${L}/${rlatt})
+variable    Ly equal (${totlayers}-1)/2
+variable    outbuff equal 2
+variable    Kstiff equal 0.5*${Kspring}
+
+variable	ymin equal -${outbuff}
+variable	ymax equal ${Ly}+${outbuff}
+
+variable lowwall equal -1.0/4
+variable wallwidth equal (${wlayers}-1.0)/2+1.0/2
+variable upwall equal ${Ly}+1.0/4
+variable lowinterface equal ${lowwall}+${wallwidth}
+variable upinterface equal ${upwall}-${wallwidth}
+
+variable lowlayer equal ${lowinterface}-1.0/2
+variable uplayer  equal ${upinterface}+1.0/2
+
+
+
+variable rlowinterface equal (${lowinterface})*${rlatt}
+variable rupinterface equal (${upinterface})*${rlatt}
+
+
+
+variable vwall equal 0.5*${srate}*(${upinterface}-${lowinterface}+1.0/2)*${rlatt}
+
 pair_style      lj/cut ${rc}
 bond_style      harmonic
-read_data       branch300.dat   #output_equil.dat
-region		    latticeregion block INF INF ${ylo} ${yhi} INF INF units box
+
+read_data       branch${child_index}.dat 
+
+bond_coeff       1 ${Kstiff} 0.0
+
+if "${map}==2" then &
+"variable        vx atom -vx" &
+"variable        vy atom -vy" &
+"variable        vz atom -vz" &
+"velocity        all set v_vx v_vy v_vz" 
+
+if "${map}==3" then &
+"variable        vx atom -vx" &
+"variable        vy atom vy" &
+"variable        vz atom vz" &
+"variable        px atom xhi-x" &
+"velocity        all set v_vx v_vy v_vz" &
+"set             atom * x v_px" 
+
+if "${map}==4" then & 
+"variable        vx atom vx" &
+"variable        vy atom -vy" &
+"variable        vz atom -vz" &
+"variable        px atom xhi-x" &
+"velocity        all set v_vx v_vy v_vz" &
+"set             atom * x v_px" 
+
+region  lowinnerlayer block INF INF ${lowlayer} ${lowinterface} INF INF units lattice
+region  upinnerlayer block INF INF ${upinterface} ${uplayer} INF INF units lattice
 
 
-#Set wall region
-region		    lower block INF INF ${ylo} 0.0 INF INF units box
-region		    upper block INF INF ${y} ${yhi} INF INF units box
-group		    lower type 2
-group		    upper type 3
+
+
+group lower type 2
+group upper type 3
+
 group		    wall union lower upper
 
-#Set thermostatting region
-region		    lowertherm block INF INF ${ylo} 0.0 INF INF units box
-region		    uppertherm block INF INF ${y} ${yhi} INF INF units box
 group		    lowertherm type 2
 group		    uppertherm type 3
 group           nottherm subtract all lowertherm uppertherm
 
-
+#Create a set of tethering sites (as molecules)
 group		    lowersites type 4
 group		    uppersites type 5
 group		    sites union lowersites uppersites
@@ -67,69 +97,48 @@ group		    wallandsites_lower union lowersites lower
 group		    wallandsites_upper union uppersites upper
 group		    wallandsites union sites wall
 
-#Set wall sliding
-velocity	    uppersites set ${srate} 0.0 0.0 units box
-velocity	    lowersites set -${srate} 0.0 0.0 units box
+velocity	    uppersites set ${vwall} 0.0 0.0 units box
+velocity	    lowersites set -${vwall} 0.0 0.0 units box
 
-#Get liquid molecules to a flow group
-group		    flow subtract all wall sites
-compute		    temperatureupper all temp/partial 0 1 1
-compute		    temperaturelower all temp/partial 0 1 1
+group           flow type 1
+group           sys  union flow wall
+
+
+compute		    temperatureupper uppertherm temp/partial 0 1 1
+compute		    temperaturelower lowertherm temp/partial 0 1 1
+
+
+group           innerlowlayer dynamic lowertherm region lowinnerlayer every 2500
+group           inneruplayer  dynamic uppertherm region upinnerlayer  every 2500
+
+
+
+#variable nup equal count(inneruplayer)
+#variable nlow equal count(innerlowlayer)
+
+#variable nnup equal count(lower)
+#variable nnlow equal count(upper)
+
+#variable rupinterface equal   xcm(inneruplayer,y)-0.5
+#variable rlowinterface equal  xcm(innerlowlayer,y)+0.5
 
 fix             1 flow nve
-fix             2 uppertherm nvt temp $T $T $(100.0*dt)
-fix             3 lowertherm nvt temp $T $T $(100.0*dt)
+
+fix             2 uppertherm nvt temp $T $T ${Thermo_damp}
+fix             3 lowertherm nvt temp $T $T ${Thermo_damp}
 fix_modify      2 temp temperatureupper
 fix_modify      3 temp temperaturelower
 
-#Set wall sites to not interact with anything but
-#allow then to move so wall speed "srate" is applied
 fix		        4 uppersites setforce 0.0 0.0 0.0
 fix		        5 lowersites setforce 0.0 0.0 0.0
 fix             6 uppersites nve
-fix             7 lowersites nve
-
-# MOP stress
-compute         MOP_lower all stress/mop y 0.5 conf
-compute         MOP_center all stress/mop y 2.6 conf
-compute         MOP_upper all stress/mop y 4.5 conf
-
-# Getting wall fluid interactions should give the same as the configurational
-# MOP plane between wall/liquid (and kinetic should be zero)
-compute         fij_upper flow group/group upper pair yes
-compute         fij_lower flow group/group lower pair yes
+fix             7 lowersites nve 
 
 
-compute fx_upper wallandsites_upper bond/local fx
-compute sumfx_upper all reduce sum c_fx_upper
-compute fx_lower wallandsites_lower bond/local fx
-compute sumfx_lower all reduce sum c_fx_lower
+include ./slab.lmp
+include ./vel.lmp
+include ./force.lmp
 
 
-variable 	step equal step
-variable 	temp equal temp
-
-#Shear Components
-variable	MOP_lower equal c_MOP_lower[1]
-variable	MOP_center equal c_MOP_center[1]
-variable	MOP_upper equal c_MOP_upper[1]
-variable	pxy equal pxy
-variable	fij_lower equal c_fij_lower[1]
-variable	fij_upper equal c_fij_upper[1]
-
-#Dissipation function
-variable	sumfx_lower equal c_sumfx_lower
-variable	sumfx_upper equal c_sumfx_upper
-
-#Direct components
-variable	MOP_d_lower equal c_MOP_lower[2]
-variable	MOP_d_center equal c_MOP_center[2]
-variable	MOP_d_upper equal c_MOP_upper[2]
-variable	pyy equal pyy
-variable	fij_d_lower equal c_fij_lower[2]
-variable	fij_d_upper equal c_fij_upper[2]
-
-#Then run for child trajectory
-fix		8 all print 1 "${step} ${temp} ${MOP_lower} ${MOP_center} ${MOP_upper} ${pxy} ${fij_lower} ${fij_upper} ${sumfx_lower} ${sumfx_upper} ${MOP_d_lower} ${MOP_d_center} ${MOP_d_upper} ${pyy} ${fij_d_lower} ${fij_d_upper}" file output.txt screen no 
-run	           2000
+run	           ${Child_sim}
 

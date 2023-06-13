@@ -1,0 +1,15 @@
+include ./setup.in
+include ./slab.lmp
+include ./vel.lmp
+include ./force_equil.lmp
+
+#Run mother to get child trajectories
+label loop
+variable index loop   ${Nchild}
+
+	run   ${Ninloop}
+	write_data    branch${index}.dat pair ij
+    
+next index
+jump SELF loop
+

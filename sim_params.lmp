@@ -1,0 +1,34 @@
+variable rho_f equal 0.7 
+variable rho_w equal 0.8
+ 
+variable T equal 1
+
+variable L equal 30
+variable chwidth equal 10
+variable wlayers equal 2
+
+
+variable rc equal 2.5
+variable ff_param equal 1.2
+variable wf_param equal 0.6325
+variable Kspring equal 150
+
+variable Integration_step equal 0.005
+variable Thermo_damp equal 100*${Integration_step}
+
+
+
+variable Nthermalization equal 1000000  
+variable Equil_sampling equal 100000
+variable Ninloop equal 1000
+
+
+variable Delta_s equal 0.25
+variable Delta_0 equal 0.0
+
+variable NBin equal 100
+variable Bin_Width equal 1.0/${NBin}
+
+
+variable Child_sim equal 2500
+variable Delay equal 5

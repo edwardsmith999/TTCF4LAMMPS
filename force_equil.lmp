@@ -1,0 +1,45 @@
+############force on the slab particles due to wall in x-dir#########
+
+###################### Bottom wall ##############################
+compute 	cfb1  gb1 group/group lowertherm pair yes  
+compute 	cfb2  gb2 group/group lowertherm pair yes  
+compute 	cfb3  gb3 group/group lowertherm pair yes  
+compute 	cfb4  gb4 group/group lowertherm pair yes  
+compute 	cfb5  gb5 group/group lowertherm pair yes  
+
+################### Topwall ################################
+compute         cft1  gt1 group/group uppertherm pair yes  
+compute         cft2  gt2 group/group uppertherm pair yes  
+compute         cft3  gt3 group/group uppertherm pair yes  
+compute         cft4  gt4 group/group uppertherm pair yes  
+compute         cft5  gt5 group/group uppertherm pair yes  
+
+
+##################### Writing to file ####################
+
+#################### Bottom wall #########################
+#fix   	fxforceb_1 gb1 ave/time 1 1 1 c_cfb1[2]   v_vcmyb1 file  fb_1.data mode scalar 
+#fix   	fxforceb_2 gb2 ave/time 1 1 1 c_cfb2[2]   v_vcmyb2 file  fb_2.data mode scalar 
+#fix   	fxforceb_3 gb3 ave/time 1 1 1 c_cfb3[2]   v_vcmyb3 file  fb_3.data mode scalar 
+#fix   	fxforceb_4 gb4 ave/time 1 1 1 c_cfb4[2]   v_vcmyb4 file  fb_4.data mode scalar 
+#fix   	fxforceb_5 gb5 ave/time 1 1 1 c_cfb5[2]   v_vcmyb5 file  fb_5.data mode scalar 
+
+################## Top wall #############################
+#fix     fxforcet_1 gt1 ave/time 1 1 1 c_cft1[2]  v_vcmyt1 file  ft_1.data mode scalar
+#fix     fxforcet_2 gt2 ave/time 1 1 1 c_cft2[2]  v_vcmyt2 file  ft_2.data mode scalar
+#fix     fxforcet_3 gt3 ave/time 1 1 1 c_cft3[2]  v_vcmyt3 file  ft_3.data mode scalar
+#fix     fxforcet_4 gt4 ave/time 1 1 1 c_cft4[2]  v_vcmyt4 file  ft_4.data mode scalar
+#fix     fxforcet_5 gt5 ave/time 1 1 1 c_cft5[2]  v_vcmyt5 file  ft_5.data mode scalar
+
+################## Inner top layer #############################
+
+#fix     fxforcet_uw inneruplayer ave/time 1 1 1 v_vcmytoplayer file  top_wall.data mode scalar
+
+################## Inner bottom layer #############################
+
+#fix     fxforcet_bw inneruplayer ave/time 1 1 1 v_vcmybottomlayer file  bottom_wall.data mode scalar
+
+
+
+fix   	fxvx all ave/time 1 1 ${Delay} c_cfb1[1] v_vcmyb1 c_cfb2[1] v_vcmyb2 c_cfb3[1] v_vcmyb3 c_cfb4[1] v_vcmyb4 c_cfb5[1] v_vcmyb5 c_cft1[1] v_vcmyt1 c_cft2[1] v_vcmyt2 c_cft3[1] v_vcmyt3 c_cft4[1] v_vcmyt4 c_cft5[1] v_vcmyt5 file Out.txt format %20.16g mode scalar              
+
