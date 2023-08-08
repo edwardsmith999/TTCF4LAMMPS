@@ -16,17 +16,42 @@ run_in_python = True
 Child_sim=10
 Child_No=nprocs
 Shear_rate=0.01
+Nthermalization = 100
+Ninloop = 100
+
 with open("seed.txt", 'r') as f:
     seed_v = f.read()
+
+# Run the mother on one processes 
+# Note default with Lammps and mpi4py is to distribute run
+# over all processes as comm=MPI.COMM_WORLD
+if irank == 0:
+    args = ['-var', 'rseed', seed_v]
+    lmp = lammps(comm=MPI.COMM_SELF, cmdargs=args)
+    lmp.file("mother_r.in")
+    L = PyLammps(ptr=lmp)
+    nlmp = lmp.numpy
+
+    #Run thermalisation
+    L.run(Nthermalization)
+    lmp.command("write_data equil_start.dat pair ij")
+
+    #Run mother to get child trajectories
+    for child in range(Child_No):
+        L.run(str(Ninloop) + " pre no post no")
+        lmp.command("write_data branch" + str(child) + ".dat pair ij")
+
+    #Could we do this with explict atom coordinates?
+    #nlmp.extract_atom("v")
 
 # Run the mother on all processes to get done as fast as possible
 # Note default with Lammps and mpi4py is to distribute run
 # over all processes
-args = ['-var', 'rseed', seed_v,
-        '-var', 'Nchild', str(Child_No)]
-lmp = lammps(comm=MPI.COMM_WORLD, cmdargs=args)
-lmp.file("mother.in")
-lmp.close()   #This deletes any data
+#args = ['-var', 'rseed', seed_v,
+#        '-var', 'Nchild', str(Child_No)]
+#lmp = lammps(comm=MPI.COMM_WORLD, cmdargs=args)
+#lmp.file("mother.in")
+#lmp.close()   #This deletes any data
 
 #Run the children on own processes each doing own thing
 i = irank+1
