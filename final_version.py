@@ -15,7 +15,8 @@ def sum_over_MPI(A, irank, root=0):
     sendbuf = np.ascontiguousarray(A)
     if irank == root:
         recvbuf = np.copy(np.ascontiguousarray(A))
-
+    else:
+        recvbuf = np.array(1)
     comm.Reduce([sendbuf, MPI.DOUBLE], [recvbuf, MPI.DOUBLE], op=MPI.SUM, root=root )
     #Summed arrays only exist on root process, unpack into variables
     if irank == root:
@@ -84,7 +85,6 @@ Delay=10
 Nsteps_eff=int(Nsteps_Child/Delay)+1
 Nbins=100
 Bin_Width=1.0/float(Nbins)
-Nchunks=100
 Nchildren=10
 Nmappings=4
 avetime_ncol = 2
@@ -101,6 +101,7 @@ maps=[0,7,36,35]
 comm = MPI.COMM_WORLD
 irank = comm.Get_rank()
 nprocs = comm.Get_size()
+t1 = MPI.Wtime()
 root = 0
 print("Proc {:d} out of {:d} procs".format(irank+1,nprocs))
 
@@ -121,8 +122,12 @@ data_profile  = np.zeros([Nmappings, Nsteps_eff, Nbins, avechunk_ncol])
 TTCF_response_partial = np.zeros([Nsteps_eff, avetime_ncol])
 TTCF_profile_partial= np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
 
+#Create random seed
+np.random.seed(irank)
+seed_v = str(int(np.random.randint(1, 1e5 + 1)))
+
 #Define LAMMPS object and initialise
-args = ['-sc', 'none','-log', 'none','-var', 'perturbation_seed' , '12345']
+args = ['-sc', 'none','-log', 'none','-var', 'perturbation_seed' , seed_v]
 lmp = lammps(comm=MPI.COMM_SELF, cmdargs=args)
 L = PyLammps(ptr=lmp)
 nlmp = lmp.numpy 
@@ -167,7 +172,9 @@ for Nc in range(1,Nchildren+1,1):
         Response_variables = ['c_shear_P[4]', 'v_Omega']
         Responsestr = "fix Response all ave/time 1 1 {} {} ave one".format(Delay, ' '.join(Response_variables))
         lmp.command(Responsestr)
-        lmp.command("run 0")
+
+        #Run zero to setup case
+        lmp.command("run 0 pre yes post yes")
 
         #Them this lets us get data in a semi-automated way (Nbins, etc specified once)
         data_profile[Nm, 0, :, :]= get_profiledata(profile_variables, Nbins)
@@ -176,29 +183,12 @@ for Nc in range(1,Nchildren+1,1):
         test_profile = get_profiledata(profile_variables, Nbins)
         test_response = get_responsedata(Response_variables)
 
-        #Get initial value
-        #for column in range(avetime_ncol):
-        #    data_response[Nm, 0, column] = nlmp.extract_fix("Response", LMP_STYLE_GLOBAL, LMP_TYPE_VECTOR, column)
-        #    assert test_response[column]==data_response[Nm, 0, column] 
-
-        #for y in range(Nbins):
-        #    for column in range(avechunk_ncol):
-        #        data_profile[Nm, 0, y, column] = nlmp.extract_fix("Profile", LMP_STYLE_GLOBAL, LMP_TYPE_ARRAY, y , column)
-
-        #Test to see if the same
-        #print(test_response.shape, data_response[Nm, 0, :].shape)
-        #print(test_profile.shape, data_profile[Nm, 0, :, :].shape)
-
-
         omega = data_response[Nm, 0, -1] 
         TTCF_response_partial[0, :]=0
         TTCF_profile_partial[0, :, :]=0
         #Run over time        
         for t in range(1 , Nsteps_eff , 1):
-            lmp.command("run " + str(Delay))
-#            for column in range(avetime_ncol):
-#                data_response[Nm, t, column] = nlmp.extract_fix("Response", LMP_STYLE_GLOBAL, LMP_TYPE_VECTOR, column)
-
+            lmp.command("run " + str(Delay) + " pre yes post no")
             data_profile[Nm, t, :, :]= get_profiledata(profile_variables, Nbins)
             data_response[Nm, t, :] = get_responsedata(Response_variables)
 
@@ -247,7 +237,10 @@ for Nc in range(1,Nchildren+1,1):
 #            mean_list[i] = update_mean(partials_list[i], mean_list[i], Count)
 
 lmp.close()
-        
+t2 = MPI.Wtime()
+if irank == root:
+    print("Walltime =", t2 - t1, flush=True)
+
 #I GET THE FINAL COLUMN BECAUSE BY DEFAULT LAMMPS GIVE YOU ALSO THE USELESS INFO ABOUT THE BINS. SINCE I HAVE ONLY ONE QUANTITY TO COMPUTE, I TAKE THE LAST.
 # IF I HAD N QUANTITIES, I WOULD TAKE THE LAST N ELEMENTS
 TTCF_profile_mean = TTCF_profile_mean[:,:,-1]
