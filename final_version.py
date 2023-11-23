@@ -1,7 +1,6 @@
 
 from mpi4py import MPI
-from lammps import lammps
-from lammps import PyLammps
+from lammps import lammps, PyLammps
 from lammps import LMP_STYLE_GLOBAL, LMP_TYPE_VECTOR, LMP_TYPE_ARRAY
 
 import matplotlib.pyplot as plt
@@ -24,21 +23,22 @@ def sum_over_MPI(A, irank, root=0):
     else:
         return None
 
-# Should this be float(Count) in denominator?
+# Running tally of variance
 def update_var(partial, mean, var, Count):
     return (Count-1)/float(Count)*var + ((Count-1)*((partial - mean)/float(Count))**2)
 
+#Running tally of mean
 def update_mean(partial, mean, Count):
     return ((Count-1)*mean + partial)/float(Count)
 
 
 def get_responsedata(response_variables):
-    Ncols = len(response_variables)+1
+    Ncols = len(response_variables)
     out = np.empty(Ncols)
     for column in range(Ncols):
         out[column] = nlmp.extract_fix("Response", LMP_STYLE_GLOBAL, LMP_TYPE_VECTOR, column)
 
-    return
+    return out
 
 def get_responseDict(response_variables):
     """
@@ -48,7 +48,6 @@ def get_responseDict(response_variables):
 
     out = get_responsedata(response_variables)
     varDict = {}
-    varDict['binNo'] = out[0]
     for i, pf in enumerate(response_variables):
         varDict[pf] = out[i]
     return varDict
@@ -122,7 +121,7 @@ data_profile  = np.zeros([Nmappings, Nsteps_eff, Nbins, avechunk_ncol])
 TTCF_response_partial = np.zeros([Nsteps_eff, avetime_ncol])
 TTCF_profile_partial= np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
 
-#Define LAMMPS object
+#Define LAMMPS object and initialise
 args = ['-sc', 'none','-log', 'none','-var', 'perturbation_seed' , '12345']
 lmp = lammps(comm=MPI.COMM_SELF, cmdargs=args)
 L = PyLammps(ptr=lmp)
@@ -138,7 +137,8 @@ lmp.command("fix snapshot all store/state 0 x y z vx vy vz")
 
 Count = 0
 for Nc in range(1,Nchildren+1,1):
-               
+
+    #Setup child
     lmp.command("include ./load_state.lmp")
     lmp.command("fix NVT_sampling all nvt temp ${T} ${T} ${Thermo_damp} tchain 1")
     lmp.command("run " + str(1000))
@@ -146,10 +146,8 @@ for Nc in range(1,Nchildren+1,1):
     lmp.command("fix snapshot all store/state 0 x y z vx vy vz")
 
     for Nm in range(Nmappings):
-    
-        TTCF_response_partial[0, :]=0
-        TTCF_profile_partial[0, :, :]=0
-    
+
+        #Apply mapping    
         lmp.command("variable map equal " + str(maps[Nm]))
         lmp.command("variable child_index equal " + str(Nc))
         lmp.command("include ./load_state.lmp")
@@ -173,16 +171,16 @@ for Nc in range(1,Nchildren+1,1):
 
         #Them this lets us get data in a semi-automated way (Nbins, etc specified once)
         data_profile[Nm, 0, :, :]= get_profiledata(profile_variables, Nbins)
-        #data_response[Nm, 0, :] = get_responsedata(Response_variables)
+        data_response[Nm, 0, :] = get_responsedata(Response_variables)
 
         test_profile = get_profiledata(profile_variables, Nbins)
         test_response = get_responsedata(Response_variables)
 
-
         #Get initial value
-        for column in range(avetime_ncol):
-            data_response[Nm, 0, column] = nlmp.extract_fix("Response", LMP_STYLE_GLOBAL, LMP_TYPE_VECTOR, column)
-          
+        #for column in range(avetime_ncol):
+        #    data_response[Nm, 0, column] = nlmp.extract_fix("Response", LMP_STYLE_GLOBAL, LMP_TYPE_VECTOR, column)
+        #    assert test_response[column]==data_response[Nm, 0, column] 
+
         #for y in range(Nbins):
         #    for column in range(avechunk_ncol):
         #        data_profile[Nm, 0, y, column] = nlmp.extract_fix("Profile", LMP_STYLE_GLOBAL, LMP_TYPE_ARRAY, y , column)
@@ -191,18 +189,18 @@ for Nc in range(1,Nchildren+1,1):
         #print(test_response.shape, data_response[Nm, 0, :].shape)
         #print(test_profile.shape, data_profile[Nm, 0, :, :].shape)
 
-        omega = data_response[Nm, 0, -1] 
 
+        omega = data_response[Nm, 0, -1] 
+        TTCF_response_partial[0, :]=0
+        TTCF_profile_partial[0, :, :]=0
         #Run over time        
         for t in range(1 , Nsteps_eff , 1):
             lmp.command("run " + str(Delay))
-            for column in range(avetime_ncol):
-                data_response[Nm, t, column] = nlmp.extract_fix("Response", LMP_STYLE_GLOBAL, LMP_TYPE_VECTOR, column)
+#            for column in range(avetime_ncol):
+#                data_response[Nm, t, column] = nlmp.extract_fix("Response", LMP_STYLE_GLOBAL, LMP_TYPE_VECTOR, column)
 
             data_profile[Nm, t, :, :]= get_profiledata(profile_variables, Nbins)
-            #for y in range(Nbins):
-            #    for column in range(avechunk_ncol):
-           #         data_profile[Nm, t, y, column] = nlmp.extract_fix("Profile", LMP_STYLE_GLOBAL, LMP_TYPE_ARRAY, y , column)
+            data_response[Nm, t, :] = get_responsedata(Response_variables)
 
             #INTEGRATION PROCESS: I INTEGRATE EACH SINGLE TRAJECTORY, SO THAT I HAVE A RELIABLE ESTIMATE OF THE VARIANCE
             if (t % 2) == 0:
