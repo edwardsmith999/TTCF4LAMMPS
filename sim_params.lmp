@@ -1,34 +1,33 @@
-variable rho_f equal 0.7 
-variable rho_w equal 0.8
- 
-variable T equal 1
+variable rho_f equal 0.8442                             #Density
+variable Npart equal 256                                #Number of particles
+variable T equal 0.722                                  #Temperature 
+variable L equal (${Npart}/${rho_f})^(1.0/3)            #system size (i want to control the number of particles rather than the volume)
+variable rc equal 2^(1/6)                               #Interaction radius for Lennard-Jones (effectively WCA potential)
 
-variable L equal 30
-variable chwidth equal 10
-variable wlayers equal 2
+variable Integration_step equal 0.0025                  #Integration step
+variable Thermo_damp equal 10*${Integration_step}       #Damping factor of the Nose Hoover thermostat
+
+variable Nchild equal 100
+#variable therm_seed equal 1234567890
+
+variable Nthermalization equal 10000                                 #Number of timesteps for equilibration of the mother trajectory
+variable Ndecorrelation equal 1500                                   #Number of timesteps for decorrelate the equilibrium mothers
+variable Ninloop equal 1000                                          #Timesteps between samples over the mother trajectory
+variable Child_simtime equal 1000                                  #Timesteps of the nonequilibrium daughter trajectory
+#variable Tot_looptime equal ${Ninloop}+(${Tot_map}*${Child_simtime}) #Timesteps between samples over the simulations (mother + 4 daughters)
+variable Delay equal 10
+
+#variable perturbation_seed equal 48274
+
+variable Nmappings equal 4
 
 
-variable rc equal 2.5
-variable ff_param equal 1.2
-variable wf_param equal 0.6325
-variable Kspring equal 150
+variable map_list vector [1,8,37,36]
 
-variable Integration_step equal 0.005
-variable Thermo_damp equal 100*${Integration_step}
-
-
-
-variable Nthermalization equal 1000000  
-variable Equil_sampling equal 100000
-variable Ninloop equal 1000
-
-
-variable Delta_s equal 0.25
-variable Delta_0 equal 0.0
+variable srate equal 1
 
 variable NBin equal 100
 variable Bin_Width equal 1.0/${NBin}
 
 
-variable Child_sim equal 2500
-variable Delay equal 5
+variable k_B equal 1

@@ -1,0 +1,27 @@
+unfix   Profile 
+unfix   Response
+
+
+unfix box_deform
+unfix NVT_SLLOD
+  
+uncompute tlayers  
+uncompute       shear_T
+uncompute		shear_P
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
