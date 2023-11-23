@@ -27,9 +27,12 @@ do
 
     seed_v=`sed -n ${TASK_ID}p ${seed_file}`
 
+    #Run equilibration
+    mpirun -np 1 ${exe} -screen none -var rseed ${seed_v} -in mother_equil.in
+
     #Run mother trajectory to create all children starting points
-    mpirun -np 1 ${exe} -screen none -var rseed ${seed_v} -var Nchild "${Child_No}" -in mother.in 
-    
+    mpirun -np 1 ${exe} -screen none -var rseed ${seed_v} -var Nchild "${Child_No}" -in mother_gen_branches.in 
+
     #The total number of restart files generated to spawn children from
     for ((i=1;i<="${Child_No}";i++))
     do

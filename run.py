@@ -203,7 +203,7 @@ if __name__ == "__main__":
                        Ninloop=300, runcounter=0)
     for i in range(nbatches):
 
-        #Delete old files
+        #Delete previous batch of child files
         clean(basename=basename, folder=studyfolder)
 
         #Run mother trajectory for Nruns more steps and increment runcounter

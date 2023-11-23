@@ -47,8 +47,6 @@ variable vwall equal 0.5*${srate}*(${upinterface}-${lowinterface}+1.0/2)*${rlatt
 pair_style      lj/cut ${rc}
 bond_style      harmonic
 
-read_data       branch${child_index}.dat 
-
 bond_coeff       1 ${Kstiff} 0.0
 
 if "${map}==2" then &
