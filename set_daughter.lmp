@@ -20,7 +20,7 @@ fix   	Response all ave/time 1 1 ${Delay} c_shear_P[4] v_Omega ave one #file Res
 
 
 
-run 0
+run 0 
 
 
 

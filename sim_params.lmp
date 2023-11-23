@@ -24,7 +24,7 @@ variable Nmappings equal 4
 
 variable map_list vector [1,8,37,36]
 
-variable srate equal 1
+#variable srate equal 1
 
 variable NBin equal 100
 variable Bin_Width equal 1.0/${NBin}
