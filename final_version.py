@@ -80,19 +80,49 @@ def get_profileDict(profile_variables, Nbins):
     return varDict
 
 
-Nsteps_Child=1000
-Delay=10
-Nsteps_eff=int(Nsteps_Child/Delay)+1
-Nbins=100
-Bin_Width=1.0/float(Nbins)
-Nchildren=10
-Nmappings=4
-avetime_ncol = 2
-avechunk_ncol = 3
-avechunks_nrows=1
-stepsize_child = 1
-shear_rate = 1
-dt = 0.0025
+if System == "SLLOD" :
+
+    #Path_to_therm          = "SLLOD/mother_thermalization.in"   #PATH FOR THE INPUT FILE. NOT SURE HOW IT WORKS IN PYTHON, BUT HERE YOU SELECT THE PROPER FOLDER
+    #Path_to_sampling       = "SLLOD/sampling.in"
+    #Path_to_set_daughter   = "SLLOD/set_daughter.in"
+    #Path_to_unset_daughter = "SLLOD/unset_daughter.in"
+
+    
+    Sampling_delay =1000
+    Nsteps_Child=1000
+    Delay=10
+    Nsteps_eff=int(Nsteps_Child/Delay)+1
+    Nbins=100
+    Bin_Width=1.0/float(Nbins)
+    Nchildren=10
+    Nmappings=4
+    avetime_ncol = 2
+    avechunk_ncol = 3
+    avechunks_nrows=1
+    stepsize_child = 1
+    shear_rate = 1
+    dt = 0.0025
+
+if System == "BOUNDARY" :
+
+    Path_to_therm    = "BOUNDARY/mother_thermalization.in"
+    Path_to_sampling = "BOUNDARY/mother_sampling+daughter.in"
+
+    Nsteps_Child=1000
+    Delay=10
+    Nsteps_eff=int(Nsteps_Child/Delay)+1
+    Nbins=100
+    Bin_Width=1.0/float(Nbins)
+    Nchildren=10
+    Nmappings=4
+    avetime_ncol = 2
+    avechunk_ncol = 3
+    avechunks_nrows=1
+    stepsize_child = 1
+    shear_rate = 1
+    dt = 0.005
+
+    
 
 maps=[0,7,36,35]
 
@@ -133,30 +163,17 @@ L = PyLammps(ptr=lmp)
 nlmp = lmp.numpy 
 
 #Run equilibration  
-lmp.file("mother+daughter.in")
-lmp.command("run " + str(1500))
-
-#Save snapshot to use for children
-lmp.command("unfix NVT_decorrelation")
-lmp.command("fix snapshot all store/state 0 x y z vx vy vz")
+lmp.file(System + "/thermalization.in")
 
 Count = 0
 for Nc in range(1,Nchildren+1,1):
 
-    #Setup child
-    lmp.command("include ./load_state.lmp")
-    lmp.command("fix NVT_sampling all nvt temp ${T} ${T} ${Thermo_damp} tchain 1")
-    lmp.command("run " + str(1000))
-    lmp.command("unfix NVT_sampling")
-    lmp.command("fix snapshot all store/state 0 x y z vx vy vz")
+    #Setup daughter
+    lmp.command("include ./sampling.lmp")
 
     for Nm in range(Nmappings):
 
-        #Apply mapping    
         lmp.command("variable map equal " + str(maps[Nm]))
-        lmp.command("variable child_index equal " + str(Nc))
-        lmp.command("include ./load_state.lmp")
-        lmp.command("include ./mappings.lmp")
         lmp.command("include ./set_daughter.lmp")
 
         #Define compute
@@ -211,7 +228,7 @@ for Nc in range(1,Nchildren+1,1):
         partial_response = data_response[Nm,:,:]
         Count += 1
 
-        #Would may be simpler as a function
+       
         TTCF_profile_var= update_var(TTCF_profile_partial, TTCF_profile_mean, TTCF_profile_var, Count)
         TTCF_profile_mean= update_mean(TTCF_profile_partial, TTCF_profile_mean, Count)
         
