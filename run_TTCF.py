@@ -104,25 +104,37 @@ t1 = MPI.Wtime()
 root = 0
 print("Proc {:d} out of {:d} procs".format(irank+1,nprocs))
 
+#Define lengths for all runs, number of Daughters, etc
 Nsteps_Thermalization = 10000
 Nsteps_Decorrelation  = 1000
 Nsteps_Daughter       = 1000
 ToT_Daughters= 100
 Maps=[0,7,36,35]
+Nmappings=len(Maps)
 Nbins=100
+Bin_Width=1.0/float(Nbins)
+
 dt = 0.0025
 
 Delay=10
 Nsteps_eff=int(Nsteps_Daughter/Delay)+1
-
-Bin_Width=1.0/float(Nbins)
 Ndaughters=int(ToT_Daughters/nprocs)+1
-Nmappings=len(Maps)
-avetime_ncol = 2
-avechunk_ncol = 3
-avechunks_nrows=1
 
 
+#Define profile quantities to compute
+profile_variables = ['vx']
+#Define bin discretization
+computestr = "compute profile_layers all chunk/atom bin/1d y lower "+str(Bin_Width)+" units reduced"
+#Profile (ave/chunk fix)
+profilestr = "fix Profile_variables all ave/chunk 1 1 {} profile_layers {} ave one".format(Delay, ' '.join(profile_variables))
+global_variables = ['c_shear_P[4]', 'v_Omega']
+#And global (ave/time fix)
+globalstr = "fix Global_variables all ave/time 1 1 {} {} ave one".format(Delay, ' '.join(global_variables))
+
+avetime_ncol = len(global_variables)
+avechunk_ncol = len(profile_variables) + 2
+
+#Allocate empty arrays for data
 DAV_global_mean  = np.zeros([Nsteps_eff, avetime_ncol])
 DAV_profile_mean   = np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
 
@@ -142,14 +154,14 @@ TTCF_profile_partial= np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
 
 #Create random seed
 np.random.seed(irank)
-seed_v = str(int(np.random.randint(1, 1e5 + 1)))
+#seed_v = str(int(np.random.randint(1, 1e5 + 1)))
 seed_v = str(12345)
 
 #Define LAMMPS object and initialise
 args = ['-sc', 'none','-log', 'none','-var', 'rand_seed' , seed_v]
 lmp = lammps(comm=MPI.COMM_SELF, cmdargs=args)
 L = PyLammps(ptr=lmp)
-nlmp = lmp.numpy 
+nlmp = lmp.numpy
 
 #Run equilibration  
 lmp.file("System_setup.in")
@@ -181,36 +193,20 @@ for Nc in range(1,Ndaughters+1,1):
         lmp.command("include ./mappings.lmp")
         lmp.command("include ./set_daughter.lmp")
 
-        #Define profile quantities to compute
-        profile_variables = ['vx']
-        
-        #Define bin discretization
-        computestr = "compute profile_layers all chunk/atom bin/1d y lower "+str(Bin_Width)+" units reduced"
+        #Setup all computes
         lmp.command(computestr)
-
-        #Profile (ave/chunk fix)
-        profilestr = "fix Profile_variables all ave/chunk 1 1 {} profile_layers {} ave one".format(Delay, ' '.join(profile_variables))
         lmp.command(profilestr)
-
-        #Define global quantities to compute
         lmp.command("compute		shear_T all temp/deform")     
         lmp.command("compute        shear_P all pressure shear_T ")
         lmp.command("variable       Omega equal -c_shear_P[4]*(xhi-xlo)*(yhi-ylo)*(zhi-zlo)*${srate}/(${k_B}*${T})")
-         
-        global_variables = ['c_shear_P[4]', 'v_Omega']
-        #And global (ave/time fix)
-        globalstr = "fix Global_variables all ave/time 1 1 {} {} ave one".format(Delay, ' '.join(global_variables))
         lmp.command(globalstr)
 
         #Run zero to setup case
         lmp.command("run 0 pre yes post yes")
 
-        #Them this lets us get data in a semi-automated way (Nbins, etc specified once)
+        #Them functions data in a semi-automated way (Nbins, etc specified once)
         data_profile[0, :, :]= get_profiledata(profile_variables, Nbins)
         data_global[0, :] = get_globaldata(global_variables)
-
-        test_profile = get_profiledata(profile_variables, Nbins)
-        test_global = get_globaldata(global_variables)
 
         omega = data_global[0, -1] 
         TTCF_global_partial[0, :]=0
@@ -237,6 +233,7 @@ for Nc in range(1,Ndaughters+1,1):
                 #TTCF_global_partial[t-1,:]  = (2.*TTCF_global_partial[t-2,:] 
                 #                               + omega*Delay*dt*sum_prev_dt(data_global, t))/2
 
+        #Turn off computes
         lmp.command("unfix Profile_variables")
         lmp.command("unfix Global_variables")
         lmp.command("uncompute profile_layers")
@@ -249,7 +246,7 @@ for Nc in range(1,Ndaughters+1,1):
         DAV_global_partial = data_global[:,:]
         Count += 1
 
-        #Would be simpler as a function
+        #Update all means and variences
         TTCF_profile_var= update_var(TTCF_profile_partial, TTCF_profile_mean, TTCF_profile_var, Count)
         TTCF_profile_mean= update_mean(TTCF_profile_partial, TTCF_profile_mean, Count)
         

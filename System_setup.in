@@ -1,0 +1,31 @@
+units		    lj
+dimension	    3
+atom_style      full 
+neigh_modify	delay 0 every 1
+boundary		p p p
+
+variable rho equal 0.8442                               #Density
+variable Npart equal 256                                #Number of particles
+variable T equal 0.722                                  #Temperature 
+variable L equal (${Npart}/${rho})^(1.0/3)              #system size (i want to control the number of particles rather than the volume)
+variable rc equal 2^(1/6)                               #Interaction radius for Lennard-Jones (effectively WCA potential)
+variable k_B equal 1
+variable srate equal 1
+
+lattice         fcc ${rho}
+region          simbox prism 0 ${L} 0 ${L} 0 ${L} 0 0 0 units box
+create_box      1 simbox 
+create_atoms    1 region simbox
+
+group           fluid region simbox
+
+mass            * 1.0
+pair_style      lj/cut ${rc}
+
+pair_coeff       1 1 1.0 1.0
+
+velocity        fluid create $T ${rand_seed}
+
+
+  
+
