@@ -1,14 +1,11 @@
-unfix   Profile 
-unfix   Response
 
+####UNSET DYNAMICS OF THE DAUGHTER TRAJECTORY####	
 
 unfix box_deform
 unfix NVT_SLLOD
-  
-uncompute tlayers  
-uncompute       shear_T
-uncompute		shear_P
 
+
+  
 
 
 

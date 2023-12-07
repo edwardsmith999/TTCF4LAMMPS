@@ -1,14 +1,13 @@
+
+####APPLY THE EXTERNAL FIELD####
+
 variable        vx_shear atom vx+${srate}*y
 set             atom * vx v_vx_shear
 	
+
+####SET DYNAMICS OF THE DAUGHTER TRAJECTORY####	
+	
 fix     box_deform all deform 1 xy erate ${srate} remap v units box
-
-compute		shear_T all temp/deform     
-compute		shear_P all pressure shear_T 
-variable Omega equal -c_shear_P[4]*(xhi-xlo)*(yhi-ylo)*(zhi-zlo)*${srate}/(${k_B}*${T})
-
-
 fix     NVT_SLLOD all nvt/sllod temp ${T} ${T} ${Thermo_damp}
-
 
 

@@ -1,3 +1,15 @@
+#### IN ORDER TO KEEP LAMMPS AND PYTHON VARIABLES SEPARATE, I REWROTE THE CODE A BIT. 
+#### NOW ESSENTIALLY EVERY ACTION IS PERFOMED IN PYTHON VIA THE LMP.COMMAND() COMMAND.
+#### THE INITIAL LAMMPS INPUT FILES CONTAINS THE PARAMETERS USED IN LAMMPS
+#### AND THE SYSTEM SETUP (SET BOX SIZE, CREATE ATOMS, ETC...)
+#### EACH SINGLE ACTION IS NOT RUN THROUGH PYTHON
+#### THINGS TO DO: IMPLEMENT THE INTEGRATION PROCESS IN A SEPARATE FUNCTION
+#### POSSIBLY, IMPLEMENT EACH SINGLE BLOCK (THERMALIZATION, SAMPLING, DAUGHTER) 
+#### IN SEPARATE FUNCTIONS. NOTE THAT THE COMMAND LMP.COMMAND(""" .....  """) DOES NOT WORK
+#### YOU NEED A SINGLE-LINE COMMAND (SINGLE LAMMPS INSTRUCTION)
+#### SO CREATE SEPARATE FUNCTIONS FOR EACH BLOCK MIGHT BE USELESS.
+#### LAST THING TO DO: CREATE FILE WITH PARAMETERS. 
+
 
 from mpi4py import MPI
 from lammps import lammps, PyLammps
@@ -7,7 +19,6 @@ import matplotlib.pyplot as plt
 
 import numpy as np
 from scipy import integrate
-
 import sys
 
 def sum_over_MPI(A, irank, root=0):
@@ -33,23 +44,23 @@ def update_mean(partial, mean, Count):
     return ((Count-1)*mean + partial)/float(Count)
 
 
-def get_responsedata(response_variables):
-    Ncols = len(response_variables)
+def get_globaldata(global_variables):
+    Ncols = len(global_variables)
     out = np.empty(Ncols)
     for column in range(Ncols):
-        out[column] = nlmp.extract_fix("Response", LMP_STYLE_GLOBAL, LMP_TYPE_VECTOR, column)
+        out[column] = nlmp.extract_fix("Global_variables", LMP_STYLE_GLOBAL, LMP_TYPE_VECTOR, column)
 
     return out
 
-def get_responseDict(response_variables):
+def get_globalDict(global_variables):
     """
         Otherwise we could return a dictonary 
         of named output variables as specified by the user
     """
 
-    out = get_responsedata(response_variables)
+    out = get_globaldata(global_variables)
     varDict = {}
-    for i, pf in enumerate(response_variables):
+    for i, pf in enumerate(global_variables):
         varDict[pf] = out[i]
     return varDict
 
@@ -61,7 +72,7 @@ def get_profiledata(profile_variables, Nbins):
     out = np.empty([Nrows, Ncols])
     for row in range(Nrows):
         for column in range(Ncols):
-            out[row, column] = nlmp.extract_fix("Profile", LMP_STYLE_GLOBAL, 
+            out[row, column] = nlmp.extract_fix("Profile_variables", LMP_STYLE_GLOBAL, 
                                                 LMP_TYPE_ARRAY, row , column)
     return out
 
@@ -79,22 +90,10 @@ def get_profileDict(profile_variables, Nbins):
         varDict[pf] = out[:, i]
     return varDict
 
-
-Nsteps_Child=1000
-Delay=10
-Nsteps_eff=int(Nsteps_Child/Delay)+1
-Nbins=100
-Bin_Width=1.0/float(Nbins)
-Nchildren=10
-Nmappings=4
-avetime_ncol = 2
-avechunk_ncol = 3
-avechunks_nrows=1
-stepsize_child = 1
-shear_rate = 1
-dt = 0.0025
-
-maps=[0,7,36,35]
+def sum_prev_dt(A, t):
+    return (   A[t-2,...] 
+            +4*A[t-1,...] 
+            +  A[t  ,...])/3.
 
 #This code is run using MPI - each processes will
 #run this same bit code with its own memory
@@ -105,136 +104,169 @@ t1 = MPI.Wtime()
 root = 0
 print("Proc {:d} out of {:d} procs".format(irank+1,nprocs))
 
-DAV_response_mean  = np.zeros([Nsteps_eff, avetime_ncol])
+Nsteps_Thermalization = 10000
+Nsteps_Decorrelation  = 1000
+Nsteps_Daughter       = 1000
+ToT_Daughters= 100
+Maps=[0,7,36,35]
+Nbins=100
+dt = 0.0025
+
+Delay=10
+Nsteps_eff=int(Nsteps_Daughter/Delay)+1
+
+Bin_Width=1.0/float(Nbins)
+Ndaughters=int(ToT_Daughters/nprocs)+1
+Nmappings=len(Maps)
+avetime_ncol = 2
+avechunk_ncol = 3
+avechunks_nrows=1
+
+
+DAV_global_mean  = np.zeros([Nsteps_eff, avetime_ncol])
 DAV_profile_mean   = np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
 
-TTCF_response_mean  = np.zeros([Nsteps_eff, avetime_ncol])
+TTCF_global_mean  = np.zeros([Nsteps_eff, avetime_ncol])
 TTCF_profile_mean   = np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
 
-DAV_response_var  = np.zeros([Nsteps_eff, avetime_ncol])
+DAV_global_var  = np.zeros([Nsteps_eff, avetime_ncol])
 DAV_profile_var   = np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
 
-TTCF_response_var  = np.zeros([Nsteps_eff, avetime_ncol])
+TTCF_global_var  = np.zeros([Nsteps_eff, avetime_ncol])
 TTCF_profile_var   = np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
 
-data_response = np.zeros([Nmappings, Nsteps_eff, avetime_ncol])
-data_profile  = np.zeros([Nmappings, Nsteps_eff, Nbins, avechunk_ncol])
-TTCF_response_partial = np.zeros([Nsteps_eff, avetime_ncol])
+data_global = np.zeros([Nsteps_eff, avetime_ncol])
+data_profile  = np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
+TTCF_global_partial = np.zeros([Nsteps_eff, avetime_ncol])
 TTCF_profile_partial= np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
 
 #Create random seed
 np.random.seed(irank)
 seed_v = str(int(np.random.randint(1, 1e5 + 1)))
+seed_v = str(12345)
 
 #Define LAMMPS object and initialise
-args = ['-sc', 'none','-log', 'none','-var', 'perturbation_seed' , seed_v]
+args = ['-sc', 'none','-log', 'none','-var', 'rand_seed' , seed_v]
 lmp = lammps(comm=MPI.COMM_SELF, cmdargs=args)
 L = PyLammps(ptr=lmp)
 nlmp = lmp.numpy 
 
 #Run equilibration  
-lmp.file("mother+daughter.in")
-lmp.command("run " + str(1500))
+lmp.file("System_setup.in")
+lmp.command("timestep " + str(dt))
+lmp.command("variable Thermo_damp equal " +  str(10*dt))
+lmp.command(" fix NVT_thermalization all nvt temp ${T} ${T} ${Thermo_damp} tchain 1")
+lmp.command("run " + str(Nsteps_Thermalization))
+lmp.command("unfix NVT_thermalization")
 
-#Save snapshot to use for children
-lmp.command("unfix NVT_decorrelation")
+#Save snapshot to use for daughters
 lmp.command("fix snapshot all store/state 0 x y z vx vy vz")
 
 Count = 0
-for Nc in range(1,Nchildren+1,1):
+for Nc in range(1,Ndaughters+1,1):
 
-    #Setup child
+    #Sampling of the daughters initial state
     lmp.command("include ./load_state.lmp")
     lmp.command("fix NVT_sampling all nvt temp ${T} ${T} ${Thermo_damp} tchain 1")
-    lmp.command("run " + str(1000))
+    lmp.command("run " + str(Nsteps_Decorrelation))
     lmp.command("unfix NVT_sampling")
     lmp.command("fix snapshot all store/state 0 x y z vx vy vz")
 
     for Nm in range(Nmappings):
 
         #Apply mapping    
-        lmp.command("variable map equal " + str(maps[Nm]))
-        lmp.command("variable child_index equal " + str(Nc))
+        lmp.command("variable map equal " + str(Maps[Nm]))
+        lmp.command("variable Daughter_index equal " + str(Nc))
         lmp.command("include ./load_state.lmp")
         lmp.command("include ./mappings.lmp")
         lmp.command("include ./set_daughter.lmp")
 
-        #Define compute
-        computestr = "compute tlayers all chunk/atom bin/1d y lower "+str(Bin_Width)+" units reduced"
+        #Define profile quantities to compute
+        profile_variables = ['vx']
+        
+        #Define bin discretization
+        computestr = "compute profile_layers all chunk/atom bin/1d y lower "+str(Bin_Width)+" units reduced"
         lmp.command(computestr)
 
         #Profile (ave/chunk fix)
-        profile_variables = ['vx']
-        profilestr = "fix Profile all ave/chunk 1 1 {} tlayers {} ave one".format(Delay, ' '.join(profile_variables))
+        profilestr = "fix Profile_variables all ave/chunk 1 1 {} profile_layers {} ave one".format(Delay, ' '.join(profile_variables))
         lmp.command(profilestr)
 
-        #And Response (ave/time fix)
-        Response_variables = ['c_shear_P[4]', 'v_Omega']
-        Responsestr = "fix Response all ave/time 1 1 {} {} ave one".format(Delay, ' '.join(Response_variables))
-        lmp.command(Responsestr)
+        #Define global quantities to compute
+        lmp.command("compute		shear_T all temp/deform")     
+        lmp.command("compute        shear_P all pressure shear_T ")
+        lmp.command("variable       Omega equal -c_shear_P[4]*(xhi-xlo)*(yhi-ylo)*(zhi-zlo)*${srate}/(${k_B}*${T})")
+         
+        global_variables = ['c_shear_P[4]', 'v_Omega']
+        #And global (ave/time fix)
+        globalstr = "fix Global_variables all ave/time 1 1 {} {} ave one".format(Delay, ' '.join(global_variables))
+        lmp.command(globalstr)
+
+
+        print(Nm)
+
 
         #Run zero to setup case
         lmp.command("run 0 pre yes post yes")
 
         #Them this lets us get data in a semi-automated way (Nbins, etc specified once)
-        data_profile[Nm, 0, :, :]= get_profiledata(profile_variables, Nbins)
-        data_response[Nm, 0, :] = get_responsedata(Response_variables)
+        data_profile[0, :, :]= get_profiledata(profile_variables, Nbins)
+        data_global[0, :] = get_globaldata(global_variables)
 
         test_profile = get_profiledata(profile_variables, Nbins)
-        test_response = get_responsedata(Response_variables)
+        test_global = get_globaldata(global_variables)
 
-        omega = data_response[Nm, 0, -1] 
-        TTCF_response_partial[0, :]=0
+        omega = data_global[0, -1] 
+        TTCF_global_partial[0, :]=0
         TTCF_profile_partial[0, :, :]=0
         #Run over time        
         for t in range(1 , Nsteps_eff , 1):
             lmp.command("run " + str(Delay) + " pre yes post no")
-            data_profile[Nm, t, :, :]= get_profiledata(profile_variables, Nbins)
-            data_response[Nm, t, :] = get_responsedata(Response_variables)
+            data_profile[t, :, :]= get_profiledata(profile_variables, Nbins)
+            data_global[t, :] = get_globaldata(global_variables)
 
             #INTEGRATION PROCESS: I INTEGRATE EACH SINGLE TRAJECTORY, SO THAT I HAVE A RELIABLE ESTIMATE OF THE VARIANCE
             if (t % 2) == 0:
                 TTCF_profile_partial[t,:,:]  = ( TTCF_profile_partial[t-2,:,:] 
-                                                + omega*Delay*dt/3*( data_profile[Nm,t-2,:,:] 
-                                                                 + 4*data_profile[Nm,t-1,:,:] 
-                                                                   + data_profile[Nm,t,:,:] ))
-                TTCF_response_partial[t,:]   = (TTCF_response_partial[t-2,:]  
-                                                + omega*Delay*dt/3*( data_response[Nm ,t-2 ,:] 
-                                                                 + 4*data_response[Nm ,t-1 ,:] 
-                                                                   + data_response[Nm ,t ,:]))
+                                                + omega*Delay*dt*sum_prev_dt(data_profile, t))
                 TTCF_profile_partial[t-1,:,:]  = ( TTCF_profile_partial[t-2,:,:] + TTCF_profile_partial[t,:,:] )/2
-                TTCF_response_partial[t-1,:]   = ( TTCF_response_partial[t-2,:]  + TTCF_response_partial[t,:] )/2
-        
+
+                TTCF_global_partial[t,:]   = (TTCF_global_partial[t-2,:]  
+                                                + omega*Delay*dt*sum_prev_dt(data_global, t))
+                TTCF_global_partial[t-1,:]   = ( TTCF_global_partial[t-2,:]  + TTCF_global_partial[t,:] )/2
+
+
         lmp.command("include ./unset_daughter.lmp")
 
-        partial_profile  = data_profile[Nm,:,:,:]
-        partial_response = data_response[Nm,:,:]
+        DAV_profile_partial  = data_profile[:,:,:]
+        DAV_global_partial = data_global[:,:]
         Count += 1
 
-        #Would may be simpler as a function
+        #Would be simpler as a function
         TTCF_profile_var= update_var(TTCF_profile_partial, TTCF_profile_mean, TTCF_profile_var, Count)
         TTCF_profile_mean= update_mean(TTCF_profile_partial, TTCF_profile_mean, Count)
         
-        DAV_profile_var= update_var(partial_profile, DAV_profile_mean, DAV_profile_var, Count)
-        DAV_profile_mean= update_mean(partial_profile, DAV_profile_mean, Count)
+        DAV_profile_var= update_var(DAV_profile_partial, DAV_profile_mean, DAV_profile_var, Count)
+        DAV_profile_mean= update_mean(DAV_profile_partial, DAV_profile_mean, Count)
 
-        TTCF_response_var= update_var(TTCF_response_partial, TTCF_response_mean, TTCF_response_var, Count)
-        TTCF_response_mean= update_mean(TTCF_response_partial, TTCF_response_mean, Count)
+        TTCF_global_var= update_var(TTCF_global_partial, TTCF_global_mean, TTCF_global_var, Count)
+        TTCF_global_mean= update_mean(TTCF_global_partial, TTCF_global_mean, Count)
         
-        DAV_response_var= update_var(partial_response, DAV_response_mean, DAV_response_var, Count)
-        DAV_response_mean= update_mean(partial_response, DAV_response_mean, Count)
+        DAV_global_var= update_var(DAV_global_partial, DAV_global_mean, DAV_global_var, Count)
+        DAV_global_mean= update_mean(DAV_global_partial, DAV_global_mean, Count)
          
         #Would may be simpler as a function
         #TTCF_profile_var= update_var(TTCF_profile_partial, TTCF_profile_mean, Count)
         #TTCF_profile_mean= update_mean(TTCF_profile_partial, TTCF_profile_mean, Count)
 
         #and you could define lists to make this even more concise (but less clear?)
-#        var_list = [TTCF_profile_var, TTCF_response_var, DAV_profile_var, DAV_response_var]
-#        mean_list = [TTCF_profile_mean, TTCF_response_mean, DAV_profile_mean, DAV_response_mean]
-#        partials_list = [TTCF_profile_partial, TTCF_response_partial, partial_profile, partial_response]
+#        var_list = [TTCF_profile_var, TTCF_global_var, DAV_profile_var, DAV_global_var]
+#        mean_list = [TTCF_profile_mean, TTCF_global_mean, DAV_profile_mean, DAV_global_mean]
+#        partials_list = [TTCF_profile_partial, TTCF_global_partial, partial_profile, partial_global]
 #        for i in range(len(var_list)):
 #            var_list[i] = update_var(partials_list[i], mean_list[i], var_list[i], Count)
 #            mean_list[i] = update_mean(partials_list[i], mean_list[i], Count)
+
 
 lmp.close()
 t2 = MPI.Wtime()
@@ -249,25 +281,25 @@ DAV_profile_mean  = DAV_profile_mean[:,:,-1]
 TTCF_profile_var = TTCF_profile_var[:,:,-1]
 DAV_profile_var  = DAV_profile_var[:,:,-1]
 
-TTCF_response_var/= np.sqrt(Count)
-DAV_response_var /= np.sqrt(Count)
+TTCF_global_var/= np.sqrt(Count)
+DAV_global_var /= np.sqrt(Count)
 TTCF_profile_var /= np.sqrt(Count)
 DAV_profile_var  /= np.sqrt(Count)
 
 ### I HAVE COMPUTED MEN AND VARIANCE OF BOTH DAV AND TTCF WITHIN EACH SINGLE CORE, SO THAT IF YOU USE A SINGLE CORE YOU STILL HAVE AN ESTIMATE OF THE FLUCTUATIONS. 
 ### NOW WE NEED TO AVERAGE OVER THE DIFFERENT CORES. FOR THE MEAN, IT IS EASY, YOU SUM AND THE MEANS AND DIVIDE BY NCORES, FOR THE VARIANCE, YOU SUM THE VARIANCES AND DIVIDE BY THE SQRT(NCORES)
 ### ESSENTIALLY WE HAVE THE MEAN OF EACH CORE: M1,M2,M3,M4,... AND THE VARIANCE V1,V2,V3,V4,... 
-### WHERE THE MEANS HAVE THE SUFFIX _mean AND THE VARIANCE _var, FOR EACH ARRAY, (TTCF_profile, TTCF_response, DAV_profile, DAV_response)
+### WHERE THE MEANS HAVE THE SUFFIX _mean AND THE VARIANCE _var, FOR EACH ARRAY, (TTCF_profile, TTCF_global, DAV_profile, DAV_global)
 ### SO THE TOTAL MEAN AND VARIANCE OVER THE CORES ARE TOT_MEAN=(M1+M2+M3+...)/NCORES AND TOT_VAR=(V1+V2+V3+...)/SQRT(NCORES)
 TTCF_profile_mean_total = sum_over_MPI(TTCF_profile_mean, irank)
 DAV_profile_mean_total = sum_over_MPI(DAV_profile_mean, irank)
 TTCF_profile_var_total = sum_over_MPI(TTCF_profile_var, irank)
 DAV_profile_var_total = sum_over_MPI(DAV_profile_var, irank)
 
-TTCF_response_mean_total = sum_over_MPI(TTCF_response_mean, irank)
-DAV_response_mean_total = sum_over_MPI(DAV_response_mean, irank)
-TTCF_response_var_total = sum_over_MPI(TTCF_response_var, irank)
-DAV_response_var_total = sum_over_MPI(DAV_response_var, irank)
+TTCF_global_mean_total = sum_over_MPI(TTCF_global_mean, irank)
+DAV_global_mean_total = sum_over_MPI(DAV_global_mean, irank)
+TTCF_global_var_total = sum_over_MPI(TTCF_global_var, irank)
+DAV_global_var_total = sum_over_MPI(DAV_global_var, irank)
 
 #Total is None on everything but the root processor
 if irank == root:
@@ -276,10 +308,10 @@ if irank == root:
     TTCF_profile_var_total  = TTCF_profile_var_total/np.sqrt(nprocs)
     DAV_profile_var_total   = DAV_profile_var_total/np.sqrt(nprocs)
     
-    TTCF_response_mean_total = TTCF_response_mean_total/float(nprocs)
-    DAV_response_mean_total  = DAV_response_mean_total/float(nprocs)
-    TTCF_response_var_total  = TTCF_response_var_total/np.sqrt(nprocs)
-    DAV_response_var_total   = DAV_response_var_total/np.sqrt(nprocs)
+    TTCF_global_mean_total = TTCF_global_mean_total/float(nprocs)
+    DAV_global_mean_total  = DAV_global_mean_total/float(nprocs)
+    TTCF_global_var_total  = TTCF_global_var_total/np.sqrt(nprocs)
+    DAV_global_var_total   = DAV_global_var_total/np.sqrt(nprocs)
     
 
 # This code animates the time history
@@ -311,11 +343,11 @@ if irank == root:
     np.savetxt('profile_DAV_SE.txt', DAV_profile_var_total)
     np.savetxt('profile_TTCF_SE.txt', TTCF_profile_var_total)
     
-    np.savetxt('response_DAV.txt', DAV_response_mean_total)
-    np.savetxt('response_TTCF.txt', TTCF_response_mean_total)
+    np.savetxt('global_DAV.txt', DAV_global_mean_total)
+    np.savetxt('global_TTCF.txt', TTCF_global_mean_total)
     
-    np.savetxt('response_DAV_SE.txt', DAV_response_var_total)
-    np.savetxt('response_TTCF_SE.txt', TTCF_response_var_total)
+    np.savetxt('global_DAV_SE.txt', DAV_global_var_total)
+    np.savetxt('global_TTCF_SE.txt', TTCF_global_var_total)
     
 
 MPI.Finalize()
