@@ -202,10 +202,6 @@ for Nc in range(1,Ndaughters+1,1):
         globalstr = "fix Global_variables all ave/time 1 1 {} {} ave one".format(Delay, ' '.join(global_variables))
         lmp.command(globalstr)
 
-
-        print(Nm)
-
-
         #Run zero to setup case
         lmp.command("run 0 pre yes post yes")
 
@@ -231,11 +227,22 @@ for Nc in range(1,Ndaughters+1,1):
                                                 + omega*Delay*dt*sum_prev_dt(data_profile, t))
                 TTCF_profile_partial[t-1,:,:]  = ( TTCF_profile_partial[t-2,:,:] + TTCF_profile_partial[t,:,:] )/2
 
+                #TTCF_profile_partial[t-1,:,:]  = (2.*TTCF_profile_partial[t-2,:,:] 
+                #                                  + omega*Delay*dt*sum_prev_dt(data_profile, t))/2
+
                 TTCF_global_partial[t,:]   = (TTCF_global_partial[t-2,:]  
                                                 + omega*Delay*dt*sum_prev_dt(data_global, t))
                 TTCF_global_partial[t-1,:]   = ( TTCF_global_partial[t-2,:]  + TTCF_global_partial[t,:] )/2
 
+                #TTCF_global_partial[t-1,:]  = (2.*TTCF_global_partial[t-2,:] 
+                #                               + omega*Delay*dt*sum_prev_dt(data_global, t))/2
 
+        lmp.command("unfix Profile_variables")
+        lmp.command("unfix Global_variables")
+        lmp.command("uncompute profile_layers")
+        lmp.command("uncompute shear_T")
+        lmp.command("uncompute shear_P")
+       
         lmp.command("include ./unset_daughter.lmp")
 
         DAV_profile_partial  = data_profile[:,:,:]
@@ -266,7 +273,6 @@ for Nc in range(1,Ndaughters+1,1):
 #        for i in range(len(var_list)):
 #            var_list[i] = update_var(partials_list[i], mean_list[i], var_list[i], Count)
 #            mean_list[i] = update_mean(partials_list[i], mean_list[i], Count)
-
 
 lmp.close()
 t2 = MPI.Wtime()
