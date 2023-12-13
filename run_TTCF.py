@@ -290,7 +290,6 @@ for Nd in range(1,Ndaughters+1,1):
         integrand_global_partial  += data_global[:,:]*omega
         
     #Perform the integration
-
     TTCF_profile_partial = TTCF_integration_profile(integrand_profile_partial, dt*Delay, Nsteps_eff , Nbins, avechunk_ncol )
     TTCF_global_partial  = TTCF_integration_global(integrand_global_partial , dt*Delay, Nsteps_eff , avetime_ncol )  
     
@@ -299,7 +298,7 @@ for Nd in range(1,Ndaughters+1,1):
     TTCF_profile_partial += DAV_profile_partial[0,:,:]
     TTCF_global_partial  += DAV_global_partial[0,:]
 
-    #Average over the mappongs and update the Count (# of children trajectories generated excluding the mappings)
+    #Average over the mappings and update the Count (# of children trajectories generated excluding the mappings)
     DAV_profile_partial  /= Nmappings   
     DAV_global_partial   /= Nmappings 
     TTCF_profile_partial /= Nmappings   
