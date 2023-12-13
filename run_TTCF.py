@@ -18,8 +18,9 @@ from lammps import LMP_STYLE_GLOBAL, LMP_TYPE_VECTOR, LMP_TYPE_ARRAY
 import matplotlib.pyplot as plt
 
 import numpy as np
-from scipy import integrate
 import sys
+import math
+
 
 def sum_over_MPI(A, irank, root=0):
     #Put data into contiguous c arrays read to send through MPI
@@ -95,6 +96,43 @@ def sum_prev_dt(A, t):
             +4*A[t-1,...] 
             +  A[t  ,...])/3.
 
+
+def TTCF_integration_profile(f_profile, int_step, N, Nb , ncols ):
+
+    #integral_profile = f_profile 
+    integral_profile = np.zeros([N, Nb, ncols])
+
+    for t in range(2 , N, 2):
+    
+        integral_profile[t,:,:]   = integral_profile[t-2,:,:] +  int_step/3*(   f_profile[t-2,:,:] + 4*f_profile[t-1,:,:] + f_profile[t,:,:] )
+        #integral_profile[t-1,:,:] = integral_profile[t-2,:,:] + int_step/12*( 5*f_profile[t-2,:,:] + 8*f_profile[t-1,:,:] - f_profile[t,:,:] )
+        integral_profile[t-1,:,:] = (integral_profile[t-2,:,:] + integral_profile[t,:,:])/2
+
+
+    if (N % 2) == 0:
+
+        integral_profile[-1,:,:] = integral_profile[-2,:,:] + int_step/2*f_profile[-1,:,:]
+
+    return integral_profile
+
+def TTCF_integration_global(f_global, int_step, N , ncols):
+
+    #integral_global = f_global 
+    integral_global = np.zeros([N,ncols])
+
+    for t in range(2 , N, 2):
+    
+        integral_global[t,:]   = integral_global[t-2,:] +  int_step/3*(   f_global[t-2,:] + 4*f_global[t-1,:] + f_global[t,:] )
+        #integral_global[t-1,:] = integral_global[t-2,:] + int_step/12*( 5*f_global[t-2,:] + 8*f_global[t-1,:] - f_global[t,:] )
+        integral_global[t-1,:] = (integral_global[t-2,:] + integral_global[t,:])/2
+
+
+    if (N % 2) == 0:
+
+        integral_global[-1,:] = integral_global[-2,:] + int_step/2*f_global[-1,:]
+
+    return integral_global
+
 #This code is run using MPI - each processes will
 #run this same bit code with its own memory
 comm = MPI.COMM_WORLD
@@ -105,20 +143,24 @@ root = 0
 print("Proc {:d} out of {:d} procs".format(irank+1,nprocs))
 
 #Define lengths for all runs, number of Daughters, etc
-Nsteps_Thermalization = 10000
-Nsteps_Decorrelation  = 1000
-Nsteps_Daughter       = 1000
-ToT_Daughters= 100
+
+Tot_Daughters= 1000
+Ndaughters=math.ceil(Tot_Daughters/nprocs)
+
 Maps=[0,7,36,35]
 Nmappings=len(Maps)
+
+Nsteps_Thermalization = 10000
+Nsteps_Decorrelation  = 10000
+Nsteps_Daughter       = 500
+
+Delay=10
+Nsteps_eff=int(Nsteps_Daughter/Delay)+1
+
 Nbins=100
 Bin_Width=1.0/float(Nbins)
 
 dt = 0.0025
-
-Delay=10
-Nsteps_eff=int(Nsteps_Daughter/Delay)+1
-Ndaughters=int(ToT_Daughters/nprocs)+1
 
 
 #Define profile quantities to compute
@@ -149,8 +191,15 @@ TTCF_profile_var   = np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
 
 data_global = np.zeros([Nsteps_eff, avetime_ncol])
 data_profile  = np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
+
 TTCF_global_partial = np.zeros([Nsteps_eff, avetime_ncol])
 TTCF_profile_partial= np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
+
+DAV_profile_partial= np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
+DAV_global_partial = np.zeros([Nsteps_eff, avetime_ncol])
+        
+integrand_profile_partial = np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
+integrand_global_partial  = np.zeros([Nsteps_eff, avetime_ncol])
 
 #Create random seed
 np.random.seed(irank)
@@ -175,7 +224,7 @@ lmp.command("unfix NVT_thermalization")
 lmp.command("fix snapshot all store/state 0 x y z vx vy vz")
 
 Count = 0
-for Nc in range(1,Ndaughters+1,1):
+for Nd in range(1,Ndaughters+1,1):
 
     #Sampling of the daughters initial state
     lmp.command("include ./load_state.lmp")
@@ -184,11 +233,17 @@ for Nc in range(1,Ndaughters+1,1):
     lmp.command("unfix NVT_sampling")
     lmp.command("fix snapshot all store/state 0 x y z vx vy vz")
 
+    DAV_profile_partial[:,:,:] = 0
+    DAV_global_partial[:,:]    = 0
+        
+    integrand_profile_partial[:,:,:] = 0
+    integrand_global_partial[:,:]    = 0
+
     for Nm in range(Nmappings):
 
         #Apply mapping    
         lmp.command("variable map equal " + str(Maps[Nm]))
-        lmp.command("variable Daughter_index equal " + str(Nc))
+        lmp.command("variable Daughter_index equal " + str(Nd))
         lmp.command("include ./load_state.lmp")
         lmp.command("include ./mappings.lmp")
         lmp.command("include ./set_daughter.lmp")
@@ -209,29 +264,13 @@ for Nc in range(1,Ndaughters+1,1):
         data_global[0, :] = get_globaldata(global_variables)
 
         omega = data_global[0, -1] 
-        TTCF_global_partial[0, :]=0
-        TTCF_profile_partial[0, :, :]=0
+        #TTCF_global_partial[0, :]=0
+        #TTCF_profile_partial[0, :, :]=0
         #Run over time        
         for t in range(1 , Nsteps_eff , 1):
             lmp.command("run " + str(Delay) + " pre yes post no")
             data_profile[t, :, :]= get_profiledata(profile_variables, Nbins)
             data_global[t, :] = get_globaldata(global_variables)
-
-            #INTEGRATION PROCESS: I INTEGRATE EACH SINGLE TRAJECTORY, SO THAT I HAVE A RELIABLE ESTIMATE OF THE VARIANCE
-            if (t % 2) == 0:
-                TTCF_profile_partial[t,:,:]  = ( TTCF_profile_partial[t-2,:,:] 
-                                                + omega*Delay*dt*sum_prev_dt(data_profile, t))
-                TTCF_profile_partial[t-1,:,:]  = ( TTCF_profile_partial[t-2,:,:] + TTCF_profile_partial[t,:,:] )/2
-
-                #TTCF_profile_partial[t-1,:,:]  = (2.*TTCF_profile_partial[t-2,:,:] 
-                #                                  + omega*Delay*dt*sum_prev_dt(data_profile, t))/2
-
-                TTCF_global_partial[t,:]   = (TTCF_global_partial[t-2,:]  
-                                                + omega*Delay*dt*sum_prev_dt(data_global, t))
-                TTCF_global_partial[t-1,:]   = ( TTCF_global_partial[t-2,:]  + TTCF_global_partial[t,:] )/2
-
-                #TTCF_global_partial[t-1,:]  = (2.*TTCF_global_partial[t-2,:] 
-                #                               + omega*Delay*dt*sum_prev_dt(data_global, t))/2
 
         #Turn off computes
         lmp.command("unfix Profile_variables")
@@ -242,34 +281,47 @@ for Nc in range(1,Ndaughters+1,1):
        
         lmp.command("include ./unset_daughter.lmp")
 
-        DAV_profile_partial  = data_profile[:,:,:]
-        DAV_global_partial = data_global[:,:]
-        Count += 1
+        #Sum the mappings together
 
-        #Update all means and variences
-        TTCF_profile_var= update_var(TTCF_profile_partial, TTCF_profile_mean, TTCF_profile_var, Count)
-        TTCF_profile_mean= update_mean(TTCF_profile_partial, TTCF_profile_mean, Count)
+        DAV_profile_partial  += data_profile[:,:,:]
+        DAV_global_partial   += data_global[:,:]
         
-        DAV_profile_var= update_var(DAV_profile_partial, DAV_profile_mean, DAV_profile_var, Count)
-        DAV_profile_mean= update_mean(DAV_profile_partial, DAV_profile_mean, Count)
+        integrand_profile_partial += data_profile[:,:,:]*omega
+        integrand_global_partial  += data_global[:,:]*omega
+        
+    #Perform the integration
 
-        TTCF_global_var= update_var(TTCF_global_partial, TTCF_global_mean, TTCF_global_var, Count)
-        TTCF_global_mean= update_mean(TTCF_global_partial, TTCF_global_mean, Count)
+    TTCF_profile_partial = TTCF_integration_profile(integrand_profile_partial, dt*Delay, Nsteps_eff , Nbins, avechunk_ncol )
+    TTCF_global_partial  = TTCF_integration_global(integrand_global_partial , dt*Delay, Nsteps_eff , avetime_ncol )  
+    
+    
+    #Add the initial value (t=0) 
+    TTCF_profile_partial += DAV_profile_partial[0,:,:]
+    TTCF_global_partial  += DAV_global_partial[0,:]
+
+    #Average over the mappongs and update the Count (# of children trajectories generated excluding the mappings)
+    DAV_profile_partial  /= Nmappings   
+    DAV_global_partial   /= Nmappings 
+    TTCF_profile_partial /= Nmappings   
+    TTCF_global_partial  /= Nmappings 
+    
         
-        DAV_global_var= update_var(DAV_global_partial, DAV_global_mean, DAV_global_var, Count)
-        DAV_global_mean= update_mean(DAV_global_partial, DAV_global_mean, Count)
+    Count += 1
+
+    #Update all means and variances
+    TTCF_profile_var= update_var(TTCF_profile_partial, TTCF_profile_mean, TTCF_profile_var, Count)
+    TTCF_profile_mean= update_mean(TTCF_profile_partial, TTCF_profile_mean, Count)
+        
+    DAV_profile_var= update_var(DAV_profile_partial, DAV_profile_mean, DAV_profile_var, Count)
+    DAV_profile_mean= update_mean(DAV_profile_partial, DAV_profile_mean, Count)
+
+    TTCF_global_var= update_var(TTCF_global_partial, TTCF_global_mean, TTCF_global_var, Count)
+    TTCF_global_mean= update_mean(TTCF_global_partial, TTCF_global_mean, Count)
+        
+    DAV_global_var= update_var(DAV_global_partial, DAV_global_mean, DAV_global_var, Count)
+    DAV_global_mean= update_mean(DAV_global_partial, DAV_global_mean, Count)
          
-        #Would may be simpler as a function
-        #TTCF_profile_var= update_var(TTCF_profile_partial, TTCF_profile_mean, Count)
-        #TTCF_profile_mean= update_mean(TTCF_profile_partial, TTCF_profile_mean, Count)
 
-        #and you could define lists to make this even more concise (but less clear?)
-#        var_list = [TTCF_profile_var, TTCF_global_var, DAV_profile_var, DAV_global_var]
-#        mean_list = [TTCF_profile_mean, TTCF_global_mean, DAV_profile_mean, DAV_global_mean]
-#        partials_list = [TTCF_profile_partial, TTCF_global_partial, partial_profile, partial_global]
-#        for i in range(len(var_list)):
-#            var_list[i] = update_var(partials_list[i], mean_list[i], var_list[i], Count)
-#            mean_list[i] = update_mean(partials_list[i], mean_list[i], Count)
 
 lmp.close()
 t2 = MPI.Wtime()
