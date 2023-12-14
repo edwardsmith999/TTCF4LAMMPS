@@ -1,7 +1,259 @@
 Transient Time Correlation Function (TTCF)
 ==========================================
-    
-This code is intended to runs LAMMPS to get a mother trajectory and then take a range of mirrored child trajectories as required for the TTCF method. 
+
+The code aims at creating a user friendly interface to implement the TTCF method in LAMMPS molecular dynamics simulation. The benchmark example shown here is particularly simple, and can be implemented on local machines, but the script is designed to be employed on HPC clusters for multi-core runs. 
+The goal it to match the work of Borszak et al (2002) (https://doi.org/10.1080/00268970210137275), where the computed the shear viscosity of a homogeneous atomic system using TTCF. 
+The dynamics is described by SLLOD equations. The computed the shear pressure over direct nonequilibrium trajectories, and compared the direct average (DAV) with TTCF.
+
+
+The TTCF algorithm requires to integrate the phase space averace of the correlation between the quantity of interest, measured along a nonequilibrium trajectory, with the dissipation function at t=0 (the initial time of the nonequilibrium trajectory) 
+```math
+\langle B(t) \rangle = \int_0^t \langle \Omega(0)B(s)\rangle ds 
+```
+
+The average is perfmormed over nonequilibrium trajectories initial conditions sampled from the equilibrium ensemble associated to the system. The easiest way to achieve this is to follow the system over an equilibrium \textit{mother} trajectory. After a thermalization to ensure the system is in thermodynamic equilibrium, the state of the system (set of all positions and momenta) is periodically sampled. The procedure is shown is the figure below
+
+![alt text](https://github.com/edwardsmith999/TTCF/blob/master/mother.png)
+
+After this process, a series of nonequilibrium \textit{daughter} runs are perfomed, where their initial conditions are the states sampled from the equilibrium trajectories. 
+
+![alt text](https://github.com/edwardsmith999/TTCF/blob/master/children.png)
+
+From each initial state, three further mirrored (two in the figure) states are generated. These futher initial states guarantee that the phase average of the dissipation function is identically null and hence the convergence of the integral is ensured. The following mappings are used in this script
+
+```math
+\bigl(x_i\;,\;y_i\;,\;z_i\;,\;p_{xi}\;,\;p_{yi}\;,\;p_{zi}\bigr)\longrightarrow\bigl(x_i\;,\;y_i\;,\;z_i\;,\;p_{xi}\;,\;p_{yi}\;,\;p_{zi}\bigr)\\
+```
+```math
+\bigl(x_i\;,\;y_i\;,\;z_i\;,\;p_{xi}\;,\;p_{yi}\;,\;p_{zi}\bigr)\longrightarrow\bigl(x_i\;,\;y_i\;,\;z_i\;,\;-p_{xi}\;,\;-p_{yi}\;,\;-p_{zi}\bigr)\\
+```
+```math
+\bigl(x_i\;,\;y_i\;,\;z_i\;,\;p_{xi}\;,\;p_{yi}\;,\;p_{zi}\bigr)\longrightarrow\bigl(-x_i\;,\;y_i\;,\;z_i\;,\;-p_{xi}\;,\;p_{yi}\;,\;p_{zi}\bigr)\\
+```
+```math
+\bigl(x_i\;,\;y_i\;,\;z_i\;,\;p_{xi}\;,\;p_{yi}\;,\;p_{zi}\bigr)\longrightarrow\bigl(-x_i\;,\;y_i\;,\;z_i\;,\;p_{xi}\;,\;-p_{yi}\;,\;-p_{zi}\bigr)
+```
+
+Hence, for each sampled state, four nonequilibrium runs are generated. 
+A compact TTCF implementation can be written within a single LAMMPS input file using the following structure
+
+	System setup
+
+	Run equilibrium thermalization
+
+	Save state
+
+	Loop over Daughters
+
+		Load state
+
+		Run equilibrium decorrelation
+
+		Save state
+
+		Loop over Mappings
+ 
+			Load state
+
+   			Apply mapping
+
+			Run nonequilibrium daughter
+
+		end Loop
+ 
+	end Loop	
+
+
+Each single block is translated into LAMMPS commands as follows:
+
+
+	########### System setup ###########
+
+                #Declaration of all variables and simulation parameters (Type 1)
+		
+		variable rho equal 0.8442                               #Density
+		variable Npart equal 256                                #Number of particles
+		variable T equal 0.722                                  #Temperature 
+		variable L equal (${Npart}/${rho})^(1.0/3)              #system size 
+		variable rc equal 2^(1/6)                               #Interaction radius for Lennard-Jones (effectively WCA potential)
+		variable k_B equal 1                                    #Boltzmann Constant
+  
+		variable srate equal 1                                  #Shear rate applied   
+
+		########################################################################################################
+                #Declaration of all variables and simulation parameters (Type 2). 
+		#These variables will be implemented in Python, and hence they are not declared in the LAMMPS script. 
+  		#They are shown here for clarity
+
+		Ndaughters=1000                                         #Total number of initial states generated
+
+		Maps=[0,7,36,35]					#Selected mapping
+		Nmappings=4						#Total number of mappings
+
+		Nsteps_Thermalization = 10000                          	#Lenght of thermalization run
+		Nsteps_Decorrelation  = 10000				#Lenght of decorrelation runs
+		Nsteps_Daughter       = 1000                            #Lenght of nonequilibrium runs
+
+		Delay=10    						#Frequency (in timesteps) for output generation along the nonequilibrium runs
+		Nsteps_eff=int(Nsteps_Daughter/Delay)+1			#Effective number of timesteps of the output
+  
+		Nbins=100 						#Number of bins for profile output
+		Bin_Width=1.0/float(Nbins)				#Bin width for profile output 
+
+		dt = 0.0025                                             #Bin width for profile output
+
+  		rand_seed = 12345    					#Seed for random initial velocity generation
+
+		########################################################################################################
+                #End of parameter declaration
+                
+
+
+ 		units		    lj
+		dimension	    3
+		atom_style      full 
+		neigh_modify	delay 0 every 1
+		boundary		p p p
+	
+		lattice         fcc ${rho}
+		region          simbox prism 0 ${L} 0 ${L} 0 ${L} 0 0 0 units box
+		create_box      1 simbox 
+		create_atoms    1 region simbox
+
+		group           fluid region simbox
+
+		mass            * 1.0
+		pair_style      lj/cut ${rc}
+
+		pair_coeff       1 1 1.0 1.0
+
+		velocity        fluid create $T ${rand_seed}
+  
+                timestep ${dt}
+		variable Thermo_damp equal 10*${dt}
+		
+
+
+
+
+The declared variables are either used by LAMMPS only (type 1) and directly declared within the input file, or managed by the python interface (type 2) and hence not declared in the input file, and shown here just for clarity purpose. The remaining set of commands are standard creation of simulation box, atom positions and velociites, and interatomic potential.
+
+	########### Run equilibrium thermalization ###########
+
+		fix NVT_thermalization all nvt temp ${T} ${T} ${Thermo_damp} tchain 1
+		run ${Nsteps_Thermalization}
+		unfix NVT_thermalization
+  
+	########### Save state ###########
+
+ 		fix snapshot all store/state 0 x y z vx vy vz
+
+The command fix store/state allow to save the state of the system without handling any file. The state can be restored by the set of commands
+	########### Load State ###########
+ 
+		change_box all  xy final 0
+
+		variable px atom f_snapshot[1]
+		variable py atom f_snapshot[2]
+		variable pz atom f_snapshot[3]
+		variable vx atom f_snapshot[4]
+		variable vy atom f_snapshot[5]
+		variable vz atom f_snapshot[6]
+
+		set             atom * x v_px 
+		set             atom * y v_py 
+		set             atom * z v_pz 
+		set             atom * vx v_vx 
+		set             atom * vy v_vy 
+		set             atom * vz v_vz
+  
+Where the command change_box is needed only of the SLLOD dynamics is employed. The variable commands regain the output of the fix store/state, and later assign it to the position of velocity of each atom.
+Note that no info about the thermostat is saved by the store/state command. Should the thermostat be relevant for the simulation, the save and load state must be replaced by 
+
+	########### Save state ###########
+
+ 		write_restart snapshot.rst
+
+	########### Load State ###########
+ 
+		read_restart snapshot.rst
+
+And each fix nvt command should have the same ID throughout the whole run.
+The mapping procedure work is the following way: in order to keep a general algorithm, each single dimension can be independenlty mirrored. There are 6 total dimensions, namely x,y,z,vx,v,z. Thus, a mapping can be identified by a set of six digits, each of which can be either 0 (no reflection) or 1 (reflection). For instance, the sequence 101100 identifies the following mapping
+
+	(101100) = (-x , y , -z , -vx , vy , vz )
+ 
+There are a total of 2^6 independent mappings, hence the string corresponding to the selected mapping can be translated into a number from 0 to 63 by simply converting the string from a binary to a decimal number. The mappings selected here are 
+
+	( x , y , z ,  vx ,  vy ,  vz ) = 000000 = 0  (original state)
+ 	( x , y , z , -vx , -vy , -vz ) = 000111 = 7  (time reversal)
+  	(-x , y , z , -vx ,  vy ,  vz ) = 100100 = 36 (x-reflection)
+  	(-x , y , z ,  vx , -vy , -vz ) = 100011 = 35 (time reversal + x-reflection)
+
+and the mapping is applied by the following commands
+
+	########### Mapping application ###########
+ 
+		#variable map equal to a number from 0 to 63
+  
+		variable mpx equal     floor((${map})/(2^5))
+		variable mpy equal     floor((${map}-(${mpx}*2^5))/(2^4))
+		variable mpz equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4))/(2^3))
+		variable mvx equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4)-(${mpz}*2^3))/(2^2))
+		variable mvy equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4)-(${mpz}*2^3)-(${mvx}*2^2))/(2^1))
+		variable mvz equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4)-(${mpz}*2^3)-(${mvx}*2^2)-(${mvy}*2^1))/(2^0))
+
+		variable        px atom x+((xhi-2*x)*${mpx})
+		variable        py atom y+((yhi-2*y)*${mpy})
+		variable        pz atom z+((zhi-2*z)*${mpz})
+		variable        vx atom vx-(2*vx*${mvx})
+		variable        vy atom vy-(2*vy*${mvy})
+		variable        vz atom vz-(2*vz*${mvz})
+
+		set             atom * x  v_px 
+		set             atom * y  v_py 
+		set             atom * z  v_pz 
+		set             atom * vx v_vx 
+		set             atom * vy v_vy 
+		set             atom * vz v_vz
+
+where the first block of commands traslates back a decimal number into its binary representation and selects each single digit, the second block calculates the corresponding reflected dimension (1 inverts sign, 0 leaves unchanged), and the third block updates the positions and momenta.
+The last two blocks are the equilibrium decorrelation process and the daughter setup. 
+
+	########### Run equilibrium decorrelation ###########
+
+ 		include ./load_state.lmp
+    		fix NVT_sampling all nvt temp ${T} ${T} ${Thermo_damp} tchain 1
+    		run ${Nsteps_Decorrelation}
+		unfix NVT_sampling
+    		fix snapshot all store/state 0 x y z vx vy vz
+
+
+	########### Run nonequilibrium daughter trajectory ###########
+ 
+ 		# Apply the external field
+		variable        vx_shear atom vx+${srate}*y     
+		set             atom * vx v_vx_shear            
+	
+
+		####SET DYNAMICS OF THE DAUGHTER TRAJECTORY####	
+	
+		fix     box_deform all deform 1 xy erate ${srate} remap v units box
+		fix     NVT_SLLOD all nvt/sllod temp ${T} ${T} ${Thermo_damp}
+
+
+
+
+
+
+
+
+
+
+
+
+   
+This code is inended to runs LAMMPS to get a mother trajectory and then take a range of mirrored child trajectories as required for the TTCF method. 
 The batch running is done using SimWrapPy, which should be automatically downloaded (from https://github.com/edwardsmith999/SimWrapPy)
 
 The first aim is to match the work of Bernardi et al (2012) (https://doi.org/10.1063/1.4746121), before moving to more complex systems.
