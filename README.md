@@ -1,17 +1,17 @@
 Transient Time Correlation Function (TTCF)
 ==========================================
 
-The code aims at creating a user friendly interface to implement the TTCF method in LAMMPS molecular dynamics simulation. The benchmark example shown here is particularly simple, and can be implemented on local machines, but the script is designed to be employed on HPC clusters for multi-core runs. 
-The goal it to match the work of Borszak et al (2002) (https://doi.org/10.1080/00268970210137275), where the computed the shear viscosity of a homogeneous atomic system using TTCF. 
-The dynamics is described by SLLOD equations. The computed the shear pressure over direct nonequilibrium trajectories, and compared the direct average (DAV) with TTCF.
+The code aims at creating a user-friendly interface to implement the TTCF method in LAMMPS molecular dynamics simulation. The benchmark example shown here is particularly simple, and can be implemented on local machines, but the script is designed to be employed on HPC clusters for multi-core runs. 
+The goal it to match the work of Borszak et al (2002) (https://doi.org/10.1080/00268970210137275), which computed shear viscosity of a homogeneous atomic system using the TTCF. 
+The dynamics is described by the SLLOD equations, shear pressure is computed over direct nonequilibrium trajectories with the TTCF and compared to the direct average (DAV).
 
 
-The TTCF algorithm requires to integrate the phase space averace of the correlation between the quantity of interest, measured along a nonequilibrium trajectory, with the dissipation function at t=0 (the initial time of the nonequilibrium trajectory) 
+The TTCF algorithm requires integration of the phase space average of the correlation between the quantity of interest, measured along a nonequilibrium trajectory, with the dissipation function, $\Omega$, at t=0 (the initial time of the nonequilibrium trajectory) 
 ```math
 \langle B(t) \rangle =\langle B(0) \rangle+ \int_0^t \langle \Omega(0)B(s)\rangle ds 
 ```
 
-The average is perfmormed over nonequilibrium trajectories initial conditions sampled from the equilibrium ensemble associated to the system. The easiest way to achieve this is to follow the system over an equilibrium \textit{mother} trajectory. After a thermalization to ensure the system is in thermodynamic equilibrium, the state of the system (set of all positions and momenta) is periodically sampled. The procedure is shown is the figure below
+The average is performed over nonequilibrium trajectories initial conditions sampled from the equilibrium ensemble associated with the system. The easiest way to achieve this is to follow the system over an equilibrium \textit{mother} trajectory. After a thermalization to ensure the system is in thermodynamic equilibrium, the state of the system (set of all positions and momenta) is periodically sampled. The procedure is shown is the figure below
 
 ![alt text](https://github.com/edwardsmith999/TTCF/blob/master/mother.png)
 
@@ -19,7 +19,7 @@ After this process, a series of nonequilibrium \textit{daughter} runs are perfom
 
 ![alt text](https://github.com/edwardsmith999/TTCF/blob/master/children.png)
 
-From each initial state, three further mirrored (two in the figure) states are generated. These futher initial states guarantee that the phase average of the dissipation function is identically null and hence the convergence of the integral is ensured. The following mappings are used in this script
+From each initial state, three further mirrored states are generated (two in the figure). These futher initial states guarantee that the phase average of the dissipation function is identically null and hence the convergence of the integral is ensured. The following mappings are used in this script
 
 ```math
 \bigl(x_i\;,\;y_i\;,\;z_i\;,\;p_{xi}\;,\;p_{yi}\;,\;p_{zi}\bigr)\longrightarrow\bigl(x_i\;,\;y_i\;,\;z_i\;,\;p_{xi}\;,\;p_{yi}\;,\;p_{zi}\bigr)\\
@@ -35,7 +35,7 @@ From each initial state, three further mirrored (two in the figure) states are g
 ```
 
 Hence, for each sampled state, four nonequilibrium runs are generated. 
-A compact TTCF implementation can be written within a single LAMMPS input file using the following structure
+A compact TTCF implementation can be written within a single LAMMPS input file using the following psudocode structure
 
 	System setup
 
