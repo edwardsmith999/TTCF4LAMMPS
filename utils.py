@@ -105,11 +105,11 @@ def load_state(lmp, state):
     return None
 
 
-def set_daughter_dynamics(lmp,srate):
+def set_daughter_dynamics(lmp):
     
-    cmdstr  = "variable vx_shear atom vx+" + srate + "*y\n"
+    cmdstr  = "variable vx_shear atom vx+${srate}*y\n"
     cmdstr += "set atom * vx v_vx_shear\n"
-    cmdstr += "fix box_deform all deform 1 xy erate " + srate + " remap v units box\n"
+    cmdstr += "fix box_deform all deform 1 xy erate ${srate} remap v units box\n"
     cmdstr += "fix NVT_SLLOD all nvt/sllod temp ${T} ${T} ${Thermo_damp}\n"
     for line in cmdstr.split("\n"):
         lmp.command(line)
