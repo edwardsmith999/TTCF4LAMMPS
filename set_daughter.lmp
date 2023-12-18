@@ -4,7 +4,6 @@
 variable        vx_shear atom vx+${srate}*y
 set             atom * vx v_vx_shear
 	
-
 ####SET DYNAMICS OF THE DAUGHTER TRAJECTORY####	
 	
 fix     box_deform all deform 1 xy erate ${srate} remap v units box

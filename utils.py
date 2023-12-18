@@ -1,5 +1,5 @@
 from mpi4py import MPI
-from lammps import lammps, PyLammps
+from lammps import lammps
 from lammps import LMP_STYLE_GLOBAL, LMP_TYPE_VECTOR, LMP_TYPE_ARRAY
 
 import numpy as np
@@ -27,51 +27,83 @@ def update_mean(partial, mean, Count):
     return ((Count-1)*mean + partial)/float(Count)
 
 
-def get_globaldata(global_variables, nlmp):
-    Ncols = len(global_variables)
-    out = np.empty(Ncols)
-    for column in range(Ncols):
-        out[column] = nlmp.extract_fix("Global_variables", LMP_STYLE_GLOBAL, LMP_TYPE_VECTOR, column)
+def get_fix_data(lmp, fixname, variables, Nbins=None):
+
+    nlmp = lmp.numpy
+    if type(variables) is list:
+        Ncols = len(variables)
+    elif type(variables) is int:
+        Ncols = variables
+    if Nbins == None:
+        out = np.empty(Ncols)
+        for column in range(Ncols):
+            out[column] = nlmp.extract_fix(fixname, LMP_STYLE_GLOBAL, 
+                                            LMP_TYPE_VECTOR, column)
+    else:
+        #The extra 2 is to account for Cell index and Ncount in array types (e.g. chunks)
+        Nrows = Nbins
+        out = np.empty([Nbins, Ncols+2])
+        for row in range(Nrows):
+            for column in range(Ncols+2):
+                out[row, column] = nlmp.extract_fix(fixname, LMP_STYLE_GLOBAL, 
+                                                    LMP_TYPE_ARRAY, row , column)
 
     return out
 
-def get_globalDict(global_variables, nlmp):
+def get_globaldata(lmp, global_variables):
+    return get_fix_data(lmp, "Global_variables", global_variables)
+
+def get_globalDict(lmp, global_variables):
     """
         Otherwise we could return a dictonary 
         of named output variables as specified by the user
     """
-
-    out = get_globaldata(global_variables, nlmp)
+    nlmp = lmp.numpy
+    out = get_globaldata(lmp, global_variables)
     varDict = {}
     for i, pf in enumerate(global_variables):
         varDict[pf] = out[i]
     return varDict
 
-
-def get_profiledata(profile_variables, Nbins, nlmp):
+def get_profiledata(lmp, profile_variables, Nbins):
     "A function for extracting profile fix information"
-    Nrows = Nbins
-    Ncols = len(profile_variables)+2
-    out = np.empty([Nrows, Ncols])
-    for row in range(Nrows):
-        for column in range(Ncols):
-            out[row, column] = nlmp.extract_fix("Profile_variables", LMP_STYLE_GLOBAL, 
-                                                LMP_TYPE_ARRAY, row , column)
-    return out
+    return get_fix_data(lmp, "Profile_variables", profile_variables, Nbins)
 
-def get_profileDict(profile_variables, Nbins, nlmp):
+def get_profileDict(lmp, profile_variables, Nbins):
     """
         Otherwise we could return a dictonary 
         of named output variables as specified by the user
     """
-
-    out = get_profiledata(profile_variables, Nbins, nlmp)
+    nlmp = lmp.numpy
+    out = get_profiledata(lmp, profile_variables, Nbins)
     varDict = {}
     varDict['binNo'] = out[:, 0]
     varDict['Ncount'] = out[:, 1]
     for i, pf in enumerate(profile_variables):
         varDict[pf] = out[:, i]
     return varDict
+
+def save_state(lmp, statename, save_variables=["x", "y", "z", "vx", "vy", "vz"]):
+
+    state = {}
+    state['name'] = statename
+    state['save_variables'] = save_variables
+    cmdstr = "fix " + statename + " all store/state 0 {}".format(' '.join(save_variables))
+    lmp.command(cmdstr)
+
+    return state
+
+def load_state(lmp, state):
+    
+    cmdstr = "change_box all  xy final 0\n"
+    for i, s in enumerate(state['save_variables']):
+        varname = "p"+s 
+        cmdstr += "variable " + varname + " atom f_"+state['name']+"["+str(i+1)+"]\n"
+        cmdstr += "set             atom * " + s + " v_"+varname+"\n"
+
+    for line in cmdstr.split("\n"):
+        lmp.command(line)
+    return None
 
 def sum_prev_dt(A, t):
     return (   A[t-2,...] 
