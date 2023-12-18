@@ -18,7 +18,7 @@ print("Proc {:d} out of {:d} procs".format(irank+1,nprocs), flush=True)
 
 #Define lengths for all runs, number of Daughters, etc
 
-Tot_Daughters= 100000
+Tot_Daughters= 1000
 Ndaughters=int(np.ceil(Tot_Daughters/nprocs))
 
 Maps=[0,7,36,35]
