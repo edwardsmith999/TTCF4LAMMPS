@@ -95,9 +95,9 @@ lmp.command("unfix NVT_thermalization")
 state = save_state(lmp, "snapshot")
 
 Count = 0
-for Nd in range(1,Ndaughters+1,1):
+for Nd in range(Ndaughters):
 
-    print("Proc", irank+1, " with daughter =", Nd, " of ", Ndaughters,  flush=True)
+    print("Proc", irank+1, " with daughter =", Nd, " of ", Ndaughters+1,  flush=True)
 
     #Sampling of the daughters initial state
     load_state(lmp, state)
