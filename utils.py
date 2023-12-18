@@ -18,9 +18,8 @@ def sum_over_MPI(A, irank, comm, root=0):
     else:
         return None
 
-# Running tally of variance
 def update_var(partial, mean, var, Count):
-    return (Count-1)/float(Count)*var + ((Count-1)*((partial - mean)/float(Count))**2)
+    return (Count-2)/float(Count-1)*var + (partial - mean)**2/float(Count)
 
 #Running tally of mean
 def update_mean(partial, mean, Count):
