@@ -13,14 +13,9 @@ variable        vx atom vx-(2*vx*${mvx})
 variable        vy atom vy-(2*vy*${mvy})
 variable        vz atom vz-(2*vz*${mvz})
 
-
 set             atom * x  v_px 
 set             atom * y  v_py 
 set             atom * z  v_pz 
 set             atom * vx v_vx 
 set             atom * vy v_vy 
 set             atom * vz v_vz
-
-
-
-

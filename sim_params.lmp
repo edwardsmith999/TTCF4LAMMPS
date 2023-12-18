@@ -3,31 +3,10 @@ variable Npart equal 256                                #Number of particles
 variable T equal 0.722                                  #Temperature 
 variable L equal (${Npart}/${rho_f})^(1.0/3)            #system size (i want to control the number of particles rather than the volume)
 variable rc equal 2^(1/6)                               #Interaction radius for Lennard-Jones (effectively WCA potential)
-variable k_B equal 1
-#variable Integration_step equal 0.0025                  #Integration step
-#variable Thermo_damp equal 10*${Integration_step}       #Damping factor of the Nose Hoover thermostat
-
-#variable Nchild equal 100
-#variable therm_seed equal 1234567890
-
-#variable Nthermalization equal 10000                                 #Number of timesteps for equilibration of the mother trajectory
-#variable Ndecorrelation equal 1500                                   #Number of timesteps for decorrelate the equilibrium mothers
-#variable Ninloop equal 1000                                          #Timesteps between samples over the mother trajectory
-#variable Child_simtime equal 1000                                  #Timesteps of the nonequilibrium daughter trajectory
-#variable Tot_looptime equal ${Ninloop}+(${Tot_map}*${Child_simtime}) #Timesteps between samples over the simulations (mother + 4 daughters)
-#variable Delay equal 10
-
-#variable perturbation_seed equal 48274
-
-#variable Nmappings equal 4
+variable k_B equal 1                                    #Boltzmann number
+variable srate equal 1                                  #Shear rate
 
 
-#variable map_list vector [1,8,37,36]
-
-variable srate equal 1
-
-#variable NBin equal 100
-#variable Bin_Width equal 1.0/${NBin}
 
 
 

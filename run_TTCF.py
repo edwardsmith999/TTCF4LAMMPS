@@ -1,153 +1,11 @@
-#### IN ORDER TO KEEP LAMMPS AND PYTHON VARIABLES SEPARATE, I REWROTE THE CODE A BIT. 
-#### NOW ESSENTIALLY EVERY ACTION IS PERFOMED IN PYTHON VIA THE LMP.COMMAND() COMMAND.
-#### THE INITIAL LAMMPS INPUT FILES CONTAINS THE PARAMETERS USED IN LAMMPS
-#### AND THE SYSTEM SETUP (SET BOX SIZE, CREATE ATOMS, ETC...)
-#### EACH SINGLE ACTION IS NOT RUN THROUGH PYTHON
-#### THINGS TO DO: IMPLEMENT THE INTEGRATION PROCESS IN A SEPARATE FUNCTION
-#### POSSIBLY, IMPLEMENT EACH SINGLE BLOCK (THERMALIZATION, SAMPLING, DAUGHTER) 
-#### IN SEPARATE FUNCTIONS. NOTE THAT THE COMMAND LMP.COMMAND(""" .....  """) DOES NOT WORK
-#### YOU NEED A SINGLE-LINE COMMAND (SINGLE LAMMPS INSTRUCTION)
-#### SO CREATE SEPARATE FUNCTIONS FOR EACH BLOCK MIGHT BE USELESS.
-#### LAST THING TO DO: CREATE FILE WITH PARAMETERS. 
-
-
 from mpi4py import MPI
 from lammps import lammps, PyLammps
 from lammps import LMP_STYLE_GLOBAL, LMP_TYPE_VECTOR, LMP_TYPE_ARRAY
 
 import matplotlib.pyplot as plt
-
 import numpy as np
-import sys
-import math
 
-
-def sum_over_MPI(A, irank, root=0):
-    #Put data into contiguous c arrays read to send through MPI
-    sendbuf = np.ascontiguousarray(A)
-    if irank == root:
-        recvbuf = np.copy(np.ascontiguousarray(A))
-    else:
-        recvbuf = np.array(1)
-    comm.Reduce([sendbuf, MPI.DOUBLE], [recvbuf, MPI.DOUBLE], op=MPI.SUM, root=root )
-    #Summed arrays only exist on root process, unpack into variables
-    if irank == root:
-        return recvbuf
-    else:
-        return None
-
-# Running tally of variance
-def update_var(partial, mean, var, Count):
-    return (Count-1)/float(Count)*var + ((Count-1)*((partial - mean)/float(Count))**2)
-
-#Running tally of mean
-def update_mean(partial, mean, Count):
-    return ((Count-1)*mean + partial)/float(Count)
-
-
-def get_globaldata(global_variables):
-    Ncols = len(global_variables)
-    out = np.empty(Ncols)
-    for column in range(Ncols):
-        out[column] = nlmp.extract_fix("Global_variables", LMP_STYLE_GLOBAL, LMP_TYPE_VECTOR, column)
-
-    return out
-
-def get_globalDict(global_variables):
-    """
-        Otherwise we could return a dictonary 
-        of named output variables as specified by the user
-    """
-
-    out = get_globaldata(global_variables)
-    varDict = {}
-    for i, pf in enumerate(global_variables):
-        varDict[pf] = out[i]
-    return varDict
-
-
-def get_profiledata(profile_variables, Nbins):
-    "A function for extracting profile fix information"
-    Nrows = Nbins
-    Ncols = len(profile_variables)+2
-    out = np.empty([Nrows, Ncols])
-    for row in range(Nrows):
-        for column in range(Ncols):
-            out[row, column] = nlmp.extract_fix("Profile_variables", LMP_STYLE_GLOBAL, 
-                                                LMP_TYPE_ARRAY, row , column)
-    return out
-
-def get_profileDict(profile_variables, Nbins):
-    """
-        Otherwise we could return a dictonary 
-        of named output variables as specified by the user
-    """
-
-    out = get_profiledata(profile_variables, Nbins)
-    varDict = {}
-    varDict['binNo'] = out[:, 0]
-    varDict['Ncount'] = out[:, 1]
-    for i, pf in enumerate(profile_variables):
-        varDict[pf] = out[:, i]
-    return varDict
-
-def sum_prev_dt(A, t):
-    return (   A[t-2,...] 
-            +4*A[t-1,...] 
-            +  A[t  ,...])/3.
-
-def TTCF_integration(A, int_step):
- 
-    integral = np.zeros(A.shape)
-    N = A.shape[0]
-
-    for t in range(2 , N, 2):
-        integral[t,...]   = integral[t-2,...] +  int_step*sum_prev_dt(A, t)
-        integral[t-1,...] = (integral[t-2,...] + integral[t,...])/2
-
-    if (N % 2) == 0:
-        integral[-1,...] = integral[-2,...] + int_step/2*A[-1,...]
-
-    return integral
-
-
-
-def TTCF_integration_profile(f_profile, int_step, N, Nb , ncols ):
-
-    #integral_profile = f_profile 
-    integral_profile = np.zeros([N, Nb, ncols])
-
-    for t in range(2 , N, 2):
-        #integral_profile[t,:,:]   = integral_profile[t-2,:,:] +  int_step*sum_prev_dt(f_profile, t)
-        integral_profile[t,:,:]   = integral_profile[t-2,:,:] +  int_step/3*(   f_profile[t-2,:,:] + 4*f_profile[t-1,:,:] + f_profile[t,:,:] )
-        #integral_profile[t-1,:,:] = integral_profile[t-2,:,:] + int_step/12*( 5*f_profile[t-2,:,:] + 8*f_profile[t-1,:,:] - f_profile[t,:,:] )
-        integral_profile[t-1,:,:] = (integral_profile[t-2,:,:] + integral_profile[t,:,:])/2
-
-
-    if (N % 2) == 0:
-
-        integral_profile[-1,:,:] = integral_profile[-2,:,:] + int_step/2*f_profile[-1,:,:]
-
-    return integral_profile
-
-def TTCF_integration_global(f_global, int_step, N , ncols):
-
-    #integral_global = f_global 
-    integral_global = np.zeros([N,ncols])
-
-    for t in range(2 , N, 2):
-
-        #integral_global[t,:]   = integral_global[t-2,:] +  int_step*sum_prev_dt(f_global, t)
-        integral_global[t,:]   = integral_global[t-2,:] +  int_step/3*(   f_global[t-2,:] + 4*f_global[t-1,:] + f_global[t,:] )
-        #integral_global[t-1,:] = integral_global[t-2,:] + int_step/12*( 5*f_global[t-2,:] + 8*f_global[t-1,:] - f_global[t,:] )
-        integral_global[t-1,:] = (integral_global[t-2,:] + integral_global[t,:])/2
-
-
-    if (N % 2) == 0:
-
-        integral_global[-1,:] = integral_global[-2,:] + int_step/2*f_global[-1,:]
-
-    return integral_global
+from utils import *
 
 #This code is run using MPI - each processes will
 #run this same bit code with its own memory
@@ -161,7 +19,7 @@ print("Proc {:d} out of {:d} procs".format(irank+1,nprocs), flush=True)
 #Define lengths for all runs, number of Daughters, etc
 
 Tot_Daughters= 1000
-Ndaughters=math.ceil(Tot_Daughters/nprocs)
+Ndaughters=int(np.ceil(Tot_Daughters/nprocs))
 
 Maps=[0,7,36,35]
 Nmappings=len(Maps)
@@ -177,7 +35,6 @@ Nbins=100
 Bin_Width=1.0/float(Nbins)
 
 dt = 0.0025
-
 
 #Define profile quantities to compute
 profile_variables = ['vx']
@@ -277,18 +134,16 @@ for Nd in range(1,Ndaughters+1,1):
         #Run zero to setup case
         lmp.command("run 0 pre yes post yes")
 
-        #Them functions data in a semi-automated way (Nbins, etc specified once)
-        data_profile[0, :, :]= get_profiledata(profile_variables, Nbins)
-        data_global[0, :] = get_globaldata(global_variables)
-
+        #Them functions get data in a semi-automated way (Nbins, etc specified once)
+        data_profile[0, :, :]= get_profiledata(profile_variables, Nbins, nlmp)
+        data_global[0, :] = get_globaldata(global_variables, nlmp)
         omega = data_global[0, -1] 
-        #TTCF_global_partial[0, :]=0
-        #TTCF_profile_partial[0, :, :]=0
+
         #Run over time        
         for t in range(1 , Nsteps_eff , 1):
             lmp.command("run " + str(Delay) + " pre yes post no")
-            data_profile[t, :, :]= get_profiledata(profile_variables, Nbins)
-            data_global[t, :] = get_globaldata(global_variables)
+            data_profile[t, :, :]= get_profiledata(profile_variables, Nbins, nlmp)
+            data_global[t, :] = get_globaldata(global_variables, nlmp)
 
         #Turn off computes
         lmp.command("unfix Profile_variables")
@@ -300,7 +155,6 @@ for Nd in range(1,Ndaughters+1,1):
         lmp.command("include ./unset_daughter.lmp")
 
         #Sum the mappings together
-
         DAV_profile_partial  += data_profile[:,:,:]
         DAV_global_partial   += data_global[:,:]
         
@@ -311,7 +165,6 @@ for Nd in range(1,Ndaughters+1,1):
     TTCF_profile_partial = TTCF_integration(integrand_profile_partial, dt*Delay)
     TTCF_global_partial = TTCF_integration(integrand_global_partial, dt*Delay)
 
-
     #Add the initial value (t=0) 
     TTCF_profile_partial += DAV_profile_partial[0,:,:]
     TTCF_global_partial  += DAV_global_partial[0,:]
@@ -321,8 +174,7 @@ for Nd in range(1,Ndaughters+1,1):
     DAV_global_partial   /= Nmappings 
     TTCF_profile_partial /= Nmappings   
     TTCF_global_partial  /= Nmappings 
-    
-        
+           
     Count += 1
 
     #Update all means and variances
@@ -345,8 +197,8 @@ t2 = MPI.Wtime()
 if irank == root:
     print("Walltime =", t2 - t1, flush=True)
 
-#I GET THE FINAL COLUMN BECAUSE BY DEFAULT LAMMPS GIVE YOU ALSO THE USELESS INFO ABOUT THE BINS. SINCE I HAVE ONLY ONE QUANTITY TO COMPUTE, I TAKE THE LAST.
-# IF I HAD N QUANTITIES, I WOULD TAKE THE LAST N ELEMENTS
+#Get FINAL COLUMN BECAUSE BY DEFAULT LAMMPS GIVE YOU ALSO THE USELESS INFO ABOUT THE BINS.
+# For  N QUANTITIES, could TAKE THE LAST N ELEMENTS
 TTCF_profile_mean = TTCF_profile_mean[:,:,-1]
 DAV_profile_mean  = DAV_profile_mean[:,:,-1]
 
@@ -358,20 +210,16 @@ DAV_global_var /= np.sqrt(Count)
 TTCF_profile_var /= np.sqrt(Count)
 DAV_profile_var  /= np.sqrt(Count)
 
-### I HAVE COMPUTED MEN AND VARIANCE OF BOTH DAV AND TTCF WITHIN EACH SINGLE CORE, SO THAT IF YOU USE A SINGLE CORE YOU STILL HAVE AN ESTIMATE OF THE FLUCTUATIONS. 
-### NOW WE NEED TO AVERAGE OVER THE DIFFERENT CORES. FOR THE MEAN, IT IS EASY, YOU SUM AND THE MEANS AND DIVIDE BY NCORES, FOR THE VARIANCE, YOU SUM THE VARIANCES AND DIVIDE BY THE SQRT(NCORES)
-### ESSENTIALLY WE HAVE THE MEAN OF EACH CORE: M1,M2,M3,M4,... AND THE VARIANCE V1,V2,V3,V4,... 
-### WHERE THE MEANS HAVE THE SUFFIX _mean AND THE VARIANCE _var, FOR EACH ARRAY, (TTCF_profile, TTCF_global, DAV_profile, DAV_global)
-### SO THE TOTAL MEAN AND VARIANCE OVER THE CORES ARE TOT_MEAN=(M1+M2+M3+...)/NCORES AND TOT_VAR=(V1+V2+V3+...)/SQRT(NCORES)
-TTCF_profile_mean_total = sum_over_MPI(TTCF_profile_mean, irank)
-DAV_profile_mean_total = sum_over_MPI(DAV_profile_mean, irank)
-TTCF_profile_var_total = sum_over_MPI(TTCF_profile_var, irank)
-DAV_profile_var_total = sum_over_MPI(DAV_profile_var, irank)
+#Compute MEN AND VARIANCE OF BOTH DAV AND TTCF
+TTCF_profile_mean_total = sum_over_MPI(TTCF_profile_mean, irank, comm)
+DAV_profile_mean_total = sum_over_MPI(DAV_profile_mean, irank, comm)
+TTCF_profile_var_total = sum_over_MPI(TTCF_profile_var, irank, comm)
+DAV_profile_var_total = sum_over_MPI(DAV_profile_var, irank, comm)
 
-TTCF_global_mean_total = sum_over_MPI(TTCF_global_mean, irank)
-DAV_global_mean_total = sum_over_MPI(DAV_global_mean, irank)
-TTCF_global_var_total = sum_over_MPI(TTCF_global_var, irank)
-DAV_global_var_total = sum_over_MPI(DAV_global_var, irank)
+TTCF_global_mean_total = sum_over_MPI(TTCF_global_mean, irank, comm)
+DAV_global_mean_total = sum_over_MPI(DAV_global_mean, irank, comm)
+TTCF_global_var_total = sum_over_MPI(TTCF_global_var, irank, comm)
+DAV_global_var_total = sum_over_MPI(DAV_global_var, irank, comm)
 
 #Total is None on everything but the root processor
 if irank == root:
