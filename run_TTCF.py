@@ -167,7 +167,7 @@ for Nd in range(1,Ndaughters+1,1):
         
     #Perform the integration
     TTCF_profile_partial = TTCF_integration(integrand_profile_partial, dt*Delay)
-    TTCF_global_partial = TTCF_integration(integrand_global_partial, dt*Delay)
+    TTCF_global_partial  = TTCF_integration(integrand_global_partial, dt*Delay)
 
     #Add the initial value (t=0) 
     TTCF_profile_partial += DAV_profile_partial[0,:,:]
@@ -182,16 +182,16 @@ for Nd in range(1,Ndaughters+1,1):
     Count += 1
 
     #Update all means and variances
-    TTCF_profile_var= update_var(TTCF_profile_partial, TTCF_profile_mean, TTCF_profile_var, Count)
-    TTCF_profile_mean= update_mean(TTCF_profile_partial, TTCF_profile_mean, Count)
-        
-    DAV_profile_var= update_var(DAV_profile_partial, DAV_profile_mean, DAV_profile_var, Count)
+     if Count >1:
+    
+        TTCF_profile_var= update_var(TTCF_profile_partial, TTCF_profile_mean, TTCF_profile_var, Count)      
+        DAV_profile_var= update_var(DAV_profile_partial, DAV_profile_mean, DAV_profile_var, Count)
+        TTCF_global_var= update_var(TTCF_global_partial, TTCF_global_mean, TTCF_global_var, Count)   
+        DAV_global_var= update_var(DAV_global_partial, DAV_global_mean, DAV_global_var, Count)
+      
+    TTCF_profile_mean= update_mean(TTCF_profile_partial, TTCF_profile_mean, Count)     
     DAV_profile_mean= update_mean(DAV_profile_partial, DAV_profile_mean, Count)
-
-    TTCF_global_var= update_var(TTCF_global_partial, TTCF_global_mean, TTCF_global_var, Count)
     TTCF_global_mean= update_mean(TTCF_global_partial, TTCF_global_mean, Count)
-        
-    DAV_global_var= update_var(DAV_global_partial, DAV_global_mean, DAV_global_var, Count)
     DAV_global_mean= update_mean(DAV_global_partial, DAV_global_mean, Count)
          
 
@@ -209,10 +209,10 @@ DAV_profile_mean  = DAV_profile_mean[:,:,-1]
 TTCF_profile_var = TTCF_profile_var[:,:,-1]
 DAV_profile_var  = DAV_profile_var[:,:,-1]
 
-TTCF_global_var/= np.sqrt(Count)
-DAV_global_var /= np.sqrt(Count)
-TTCF_profile_var /= np.sqrt(Count)
-DAV_profile_var  /= np.sqrt(Count)
+TTCF_global_var/= float(Count)
+DAV_global_var /= float(Count)
+TTCF_profile_var /= float(Count)
+DAV_profile_var  /= float(Count)
 
 #Compute MEN AND VARIANCE OF BOTH DAV AND TTCF
 TTCF_profile_mean_total = sum_over_MPI(TTCF_profile_mean, irank, comm)
@@ -237,7 +237,11 @@ if irank == root:
     TTCF_global_var_total  = TTCF_global_var_total/np.sqrt(nprocs)
     DAV_global_var_total   = DAV_global_var_total/np.sqrt(nprocs)
     
-
+    TTCF_profile_SE_total  = np.sqrt(TTCF_profile_var_total)
+    DAV_profile_SE_total   = np.sqrt(DAV_profile_var_total)
+    TTCF_global_SE_total   = np.sqrt(TTCF_global_var_total)
+    DAV_global_SE_total    = np.sqrt(DAV_global_var_total)
+        
 # This code animates the time history
 #    plt.ion()
 #    fig, ax = plt.subplots(1,1)
@@ -264,14 +268,14 @@ if irank == root:
     np.savetxt('profile_DAV.txt', DAV_profile_mean_total)
     np.savetxt('profile_TTCF.txt', TTCF_profile_mean_total)
     
-    np.savetxt('profile_DAV_SE.txt', DAV_profile_var_total)
-    np.savetxt('profile_TTCF_SE.txt', TTCF_profile_var_total)
+    np.savetxt('profile_DAV_SE.txt', DAV_profile_SE_total)
+    np.savetxt('profile_TTCF_SE.txt', TTCF_profile_SE_total)
     
     np.savetxt('global_DAV.txt', DAV_global_mean_total)
     np.savetxt('global_TTCF.txt', TTCF_global_mean_total)
     
-    np.savetxt('global_DAV_SE.txt', DAV_global_var_total)
-    np.savetxt('global_TTCF_SE.txt', TTCF_global_var_total)
+    np.savetxt('global_DAV_SE.txt', DAV_global_SE_total)
+    np.savetxt('global_TTCF_SE.txt', TTCF_global_SE_total)
     
 
 MPI.Finalize()
