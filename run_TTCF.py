@@ -121,6 +121,8 @@ for Nd in range(1,Ndaughters+1,1):
         lmp.command("variable Daughter_index equal " + str(Nd))
         lmp.command("include ./load_state.lmp")
         lmp.command("include ./mappings.lmp")
+
+        #Apply forces to system
         lmp.command("include ./set_daughter.lmp")
 
         #Setup all computes
@@ -134,7 +136,7 @@ for Nd in range(1,Ndaughters+1,1):
         #Run zero to setup case
         lmp.command("run 0 pre yes post yes")
 
-        #Them functions get data in a semi-automated way (Nbins, etc specified once)
+        #Extract profile and time averaged (global) data from LAMMPS
         data_profile[0, :, :]= get_profiledata(profile_variables, Nbins, nlmp)
         data_global[0, :] = get_globaldata(global_variables, nlmp)
         omega = data_global[0, -1] 
