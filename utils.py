@@ -104,6 +104,25 @@ def load_state(lmp, state):
         lmp.command(line)
     return None
 
+
+def set_daughter_dynamics(lmp,srate):
+    
+    cmdstr  = "variable vx_shear atom vx+" + srate + "*y\n"
+    cmdstr += "set atom * vx v_vx_shear\n"
+    cmdstr += "fix box_deform all deform 1 xy erate " + srate + " remap v units box\n"
+    cmdstr += "fix NVT_SLLOD all nvt/sllod temp ${T} ${T} ${Thermo_damp}\n"
+    for line in cmdstr.split("\n"):
+        lmp.command(line)
+    return None
+
+def unset_daughter_dynamics(lmp):
+
+    cmdstr  = "unfix box_deform\n"
+    cmdstr += "unfix NVT_SLLOD\n"
+    for line in cmdstr.split("\n"):
+        lmp.command(line)
+    return None
+    
 def sum_prev_dt(A, t):
     return (   A[t-2,...] 
             +4*A[t-1,...] 
