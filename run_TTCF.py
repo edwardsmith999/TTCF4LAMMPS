@@ -96,6 +96,21 @@ def sum_prev_dt(A, t):
             +4*A[t-1,...] 
             +  A[t  ,...])/3.
 
+def TTCF_integration(A, int_step):
+ 
+    integral = np.zeros(A.shape)
+    N = A.shape[0]
+
+    for t in range(2 , N, 2):
+        integral[t,...]   = integral[t-2,...] +  int_step*sum_prev_dt(A, t)
+        integral[t-1,...] = (integral[t-2,...] + integral[t,...])/2
+
+    if (N % 2) == 0:
+        integral[-1,...] = integral[-2,...] + int_step/2*A[-1,...]
+
+    return integral
+
+
 
 def TTCF_integration_profile(f_profile, int_step, N, Nb , ncols ):
 
@@ -103,7 +118,7 @@ def TTCF_integration_profile(f_profile, int_step, N, Nb , ncols ):
     integral_profile = np.zeros([N, Nb, ncols])
 
     for t in range(2 , N, 2):
-    
+        #integral_profile[t,:,:]   = integral_profile[t-2,:,:] +  int_step*sum_prev_dt(f_profile, t)
         integral_profile[t,:,:]   = integral_profile[t-2,:,:] +  int_step/3*(   f_profile[t-2,:,:] + 4*f_profile[t-1,:,:] + f_profile[t,:,:] )
         #integral_profile[t-1,:,:] = integral_profile[t-2,:,:] + int_step/12*( 5*f_profile[t-2,:,:] + 8*f_profile[t-1,:,:] - f_profile[t,:,:] )
         integral_profile[t-1,:,:] = (integral_profile[t-2,:,:] + integral_profile[t,:,:])/2
@@ -121,7 +136,8 @@ def TTCF_integration_global(f_global, int_step, N , ncols):
     integral_global = np.zeros([N,ncols])
 
     for t in range(2 , N, 2):
-    
+
+        #integral_global[t,:]   = integral_global[t-2,:] +  int_step*sum_prev_dt(f_global, t)
         integral_global[t,:]   = integral_global[t-2,:] +  int_step/3*(   f_global[t-2,:] + 4*f_global[t-1,:] + f_global[t,:] )
         #integral_global[t-1,:] = integral_global[t-2,:] + int_step/12*( 5*f_global[t-2,:] + 8*f_global[t-1,:] - f_global[t,:] )
         integral_global[t-1,:] = (integral_global[t-2,:] + integral_global[t,:])/2
@@ -140,7 +156,7 @@ irank = comm.Get_rank()
 nprocs = comm.Get_size()
 t1 = MPI.Wtime()
 root = 0
-print("Proc {:d} out of {:d} procs".format(irank+1,nprocs))
+print("Proc {:d} out of {:d} procs".format(irank+1,nprocs), flush=True)
 
 #Define lengths for all runs, number of Daughters, etc
 
@@ -226,6 +242,8 @@ lmp.command("fix snapshot all store/state 0 x y z vx vy vz")
 Count = 0
 for Nd in range(1,Ndaughters+1,1):
 
+    print("Proc", irank+1, " with daughter =", Nd, " of ", Ndaughters,  flush=True)
+
     #Sampling of the daughters initial state
     lmp.command("include ./load_state.lmp")
     lmp.command("fix NVT_sampling all nvt temp ${T} ${T} ${Thermo_damp} tchain 1")
@@ -293,7 +311,17 @@ for Nd in range(1,Ndaughters+1,1):
     TTCF_profile_partial = TTCF_integration_profile(integrand_profile_partial, dt*Delay, Nsteps_eff , Nbins, avechunk_ncol )
     TTCF_global_partial  = TTCF_integration_global(integrand_global_partial , dt*Delay, Nsteps_eff , avetime_ncol )  
     
-    
+    temp = TTCF_integration(integrand_profile_partial, dt*Delay)
+    #print(temp.shape, TTCF_profile_partial.shape)
+    #for i in range(len(temp.ravel())):
+    #    print(temp.ravel()[i], TTCF_profile_partial.ravel()[i])
+    #    assert(temp.ravel()[i] == TTCF_profile_partial.ravel()[i])
+    assert np.allclose(temp, TTCF_profile_partial)
+
+    temp2 = TTCF_integration(integrand_global_partial, dt*Delay)
+    assert np.allclose(temp2, TTCF_global_partial)
+
+
     #Add the initial value (t=0) 
     TTCF_profile_partial += DAV_profile_partial[0,:,:]
     TTCF_global_partial  += DAV_global_partial[0,:]
