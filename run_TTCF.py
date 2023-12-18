@@ -117,7 +117,7 @@ for Nd in range(0,Ndaughters,1):
     for Nm in range(Nmappings):
 
         #Load child state
-        load_state(lmp, state)
+        load_state(lmp)
 
         #Apply mapping    
         lmp.command("variable map equal " + str(Maps[Nm]))
