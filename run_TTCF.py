@@ -182,7 +182,7 @@ for Nd in range(1,Ndaughters+1,1):
     Count += 1
 
     #Update all means and variances
-     if Count >1:
+    if Count >1:
     
         TTCF_profile_var= update_var(TTCF_profile_partial, TTCF_profile_mean, TTCF_profile_var, Count)      
         DAV_profile_var= update_var(DAV_profile_partial, DAV_profile_mean, DAV_profile_var, Count)
