@@ -18,7 +18,7 @@ print("Proc {:d} out of {:d} procs".format(irank+1,nprocs), flush=True)
 
 #Define lengths for all runs, number of Daughters, etc
 
-Tot_Daughters= 1000
+Tot_Daughters= 30000
 Ndaughters=int(np.ceil(Tot_Daughters/nprocs))
 
 Maps=[0,7,36,35]
@@ -26,7 +26,7 @@ Nmappings=len(Maps)
 
 Nsteps_Thermalization = 10000
 Nsteps_Decorrelation  = 10000
-Nsteps_Daughter       = 500
+Nsteps_Daughter       = 1000
 
 Delay=10
 Nsteps_eff=int(Nsteps_Daughter/Delay)+1
@@ -123,7 +123,11 @@ for Nd in range(1,Ndaughters+1,1):
         lmp.command("include ./mappings.lmp")
 
         #Apply forces to system
-        lmp.command("include ./set_daughter.lmp")
+        lmp.command("variable        vx_shear atom vx+${srate}*y")
+        lmp.command("set             atom * vx v_vx_shear")
+        
+        lmp.command("fix     box_deform all deform 1 xy erate ${srate} remap v units box")
+        lmp.command("fix     NVT_SLLOD all nvt/sllod temp ${T} ${T} ${Thermo_damp}")
 
         #Setup all computes
         lmp.command(computestr)
@@ -154,7 +158,8 @@ for Nd in range(1,Ndaughters+1,1):
         lmp.command("uncompute shear_T")
         lmp.command("uncompute shear_P")
        
-        lmp.command("include ./unset_daughter.lmp")
+        lmp.command("unfix box_deform")
+        lmp.command("unfix NVT_SLLOD")
 
         #Sum the mappings together
         DAV_profile_partial  += data_profile[:,:,:]
