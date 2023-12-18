@@ -308,18 +308,8 @@ for Nd in range(1,Ndaughters+1,1):
         integrand_global_partial  += data_global[:,:]*omega
         
     #Perform the integration
-    TTCF_profile_partial = TTCF_integration_profile(integrand_profile_partial, dt*Delay, Nsteps_eff , Nbins, avechunk_ncol )
-    TTCF_global_partial  = TTCF_integration_global(integrand_global_partial , dt*Delay, Nsteps_eff , avetime_ncol )  
-    
-    temp = TTCF_integration(integrand_profile_partial, dt*Delay)
-    #print(temp.shape, TTCF_profile_partial.shape)
-    #for i in range(len(temp.ravel())):
-    #    print(temp.ravel()[i], TTCF_profile_partial.ravel()[i])
-    #    assert(temp.ravel()[i] == TTCF_profile_partial.ravel()[i])
-    assert np.allclose(temp, TTCF_profile_partial)
-
-    temp2 = TTCF_integration(integrand_global_partial, dt*Delay)
-    assert np.allclose(temp2, TTCF_global_partial)
+    TTCF_profile_partial = TTCF_integration(integrand_profile_partial, dt*Delay)
+    TTCF_global_partial = TTCF_integration(integrand_global_partial, dt*Delay)
 
 
     #Add the initial value (t=0) 
