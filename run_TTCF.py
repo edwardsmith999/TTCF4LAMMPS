@@ -18,7 +18,7 @@ print("Proc {:d} out of {:d} procs".format(irank+1,nprocs), flush=True)
 
 #Define lengths for all runs, number of Daughters, etc
 
-Tot_Daughters= 1000
+Tot_Daughters= 100000
 Ndaughters=int(np.ceil(Tot_Daughters/nprocs))
 
 Maps=[0,7,36,35]
@@ -75,9 +75,11 @@ integrand_profile_partial = np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
 integrand_global_partial  = np.zeros([Nsteps_eff, avetime_ncol])
 
 #Create random seed
-np.random.seed(irank)
-#seed_v = str(int(np.random.randint(1, 1e5 + 1)))
-seed_v = str(12345)
+if nprocs == 1:
+    seed_v = str(12345)
+else:
+    np.random.seed(irank)
+    seed_v = str(int(np.random.randint(1, 1e5 + 1)))
 
 #Define LAMMPS object and initialise
 args = ['-sc', 'none','-log', 'none','-var', 'rand_seed' , seed_v]
