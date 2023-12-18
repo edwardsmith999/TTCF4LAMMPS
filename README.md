@@ -272,7 +272,7 @@ The last two blocks are the equilibrium sampling process and the daughter setup.
 		uncompute	shear_P
 
 
-At the eand of each block (thermalization, sampling, nonequilibrium run), each fix and compute is erased. The state generated from the equilibrium sampling trajectory is used as starting point for each daughter, as well as imported again for the last time when the sampling process is restored, and the next initial state is produced. 
+At the end of each block (thermalization, sampling, nonequilibrium run), each fix and compute is erased. The state generated from the equilibrium sampling trajectory is used as starting point for each daughter, as well as imported again for the last time when the sampling process is restored, and the next initial state is produced. 
 In this examples both profile (associated to a specific point of the system) and global (associated to the enire system) variables are computed, in order to provide an example for both outputs. The profile variable is the velocity, whereas the global variables are the shear pressure and the dissipation function, respectively. In this script, the dissipation function must alway be the last variable listed on the fin ave/time command. For the SLLOD equation, we have
 ```math
 \Omega(t)=\dfrac{Vp_{xy}(t)}{k_B T} 
@@ -529,8 +529,10 @@ And normalized again over the number of runs. Finally, the standard error is com
     		TTCF_global_SE_total   = np.sqrt(TTCF_global_var_total)
     		DAV_global_SE_total    = np.sqrt(DAV_global_var_total)
 
+The script plots the output using matplotlib, which should look as follows (note that due to random seed, the exact peaks might be different but trends should be the same),
 
-    
+![alt text](https://github.com/edwardsmith999/TTCF/blob/master/TTCF_vs_DAV_SLLOD.png)
+
 The variables are then saved on file
 
     np.savetxt('profile_DAV.txt', DAV_profile_mean_total)
