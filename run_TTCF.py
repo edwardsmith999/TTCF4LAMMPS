@@ -86,7 +86,7 @@ L = PyLammps(ptr=lmp)
 nlmp = lmp.numpy
 
 #Run equilibration  
-lmp.file("System_setup.in")
+lmp.file("system_setup.in")
 lmp.command("timestep " + str(dt))
 lmp.command("variable Thermo_damp equal " +  str(10*dt))
 lmp.command(" fix NVT_thermalization all nvt temp ${T} ${T} ${Thermo_damp} tchain 1")
