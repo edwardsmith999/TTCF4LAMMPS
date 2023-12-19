@@ -135,7 +135,7 @@ Each single block is translated into LAMMPS commands as follows:
 
 	########### System setup ###########
 
-                #Declaration of all variables and simulation parameters (Type 1)
+	#Declaration of all variables and simulation parameters (Type 1)
 		
 		variable rho equal 0.8442                               #Density
 		variable Npart equal 256                                #Number of particles
@@ -146,14 +146,14 @@ Each single block is translated into LAMMPS commands as follows:
   
 		variable srate equal 1                                  #Shear rate applied   
 
-		########################################################################################################
-                #Declaration of all variables and simulation parameters (Type 2). 
-		#These variables will be implemented in Python, and hence they are not declared in the LAMMPS script. 
-  		#They are shown here for clarity
+	########################################################################################################
+        #Declaration of all variables and simulation parameters (Type 2). 
+	#These variables will be implemented in Python, and hence they are not declared in the LAMMPS script. 
+  	#They are shown here for clarity
 
 		Ndaughters=1000                                         #Total number of initial states generated
 
-		Maps=[0,7,36,35]					#Selected mapping
+		Maps=[0,21,48,37]					#Selected mapping
 		Nmappings=4						#Total number of mappings
 
 		Nsteps_Thermalization = 10000                          	#Lenght of thermalization run
@@ -170,8 +170,8 @@ Each single block is translated into LAMMPS commands as follows:
 
   		rand_seed = 12345    					#Seed for random initial velocity generation
 
-		########################################################################################################
-                #End of parameter declaration
+	########################################################################################################
+        #End of parameter declaration
                 
 
 
@@ -195,7 +195,7 @@ Each single block is translated into LAMMPS commands as follows:
 
 		velocity        fluid create $T ${rand_seed}
   
-                timestep ${dt}
+        	timestep ${dt}
 		variable Thermo_damp equal 10*${dt}
 		
 
@@ -247,14 +247,14 @@ Note that no info about the thermostat is saved by the store/state command. Shou
 And each fix nvt command should have the same ID throughout the whole run.
 The mapping procedure work is the following way: in order to keep a general algorithm, each single dimension can be independently mirrored. There are 6 total dimensions, namely x,vx,y,vy,z,vz. Thus, a mapping can be identified by a set of six digits, each of which can be either 0 (no reflection) or 1 (reflection). For instance, the sequence 101100 identifies the following mapping
 
-	(101100) = (-x , vx, -y , -vy , z , vz )
+		(101100) = (-x , vx, -y , -vy , z , vz )
  
 There are a total of 2^6 independent mappings, hence the string corresponding to the selected mapping can be translated into a number from 0 to 63 by simply converting the string from a binary to a decimal number. The mappings selected here are 
 
-	( x ,  vx, y ,  vy , z ,  vz ) = 000000 = 0  (original state)
- 	( x , -vx, y , -vy , z , -vz ) = 010101 = 21  (time reversal)
-  	(-x , -vx, y ,  vy , z ,  vz ) = 110000 = 48 (x-reflection)
-  	(-x ,  vx, y , -vy , z , -vz ) = 100101 = 37 (time reversal + x-reflection)
+		( x ,  vx, y ,  vy , z ,  vz ) = 000000 = 0  (original state)
+ 		( x , -vx, y , -vy , z , -vz ) = 010101 = 21  (time reversal)
+  		(-x , -vx, y ,  vy , z ,  vz ) = 110000 = 48 (x-reflection)
+  		(-x ,  vx, y , -vy , z , -vz ) = 100101 = 37 (time reversal + x-reflection)
 
 and the mapping is applied by the following commands
 
@@ -263,10 +263,10 @@ and the mapping is applied by the following commands
 		#variable map equal to a number from 0 to 63
   
 		variable mpx equal     floor((${map})/(2^5))
-		variable mpy equal     floor((${map}-(${mpx}*2^5))/(2^4))
-		variable mpz equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4))/(2^3))
-		variable mvx equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4)-(${mpz}*2^3))/(2^2))
-		variable mvy equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4)-(${mpz}*2^3)-(${mvx}*2^2))/(2^1))
+		variable mvy equal     floor((${map}-(${mpx}*2^5))/(2^4))
+		variable mpy equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4))/(2^3))
+		variable mvy equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4)-(${mpz}*2^3))/(2^2))
+		variable mpz equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4)-(${mpz}*2^3)-(${mvx}*2^2))/(2^1))
 		variable mvz equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4)-(${mpz}*2^3)-(${mvx}*2^2)-(${mvy}*2^1))/(2^0))
 
 		variable        px atom x+((xhi-2*x)*${mpx})
