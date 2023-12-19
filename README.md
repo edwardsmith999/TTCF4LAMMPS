@@ -137,66 +137,66 @@ Each single block is translated into LAMMPS commands as follows:
 
 	#Declaration of all variables and simulation parameters (Type 1)
 		
-	variable rho equal 0.8442                               #Density
-	variable Npart equal 256                                #Number of particles
-	variable T equal 0.722                                  #Temperature 
-	variable L equal (${Npart}/${rho})^(1.0/3)              #system size 
-	variable rc equal 2^(1/6)                               #Interaction radius for Lennard-Jones (effectively WCA potential)
-	variable k_B equal 1                                    #Boltzmann Constant
+		variable rho equal 0.8442                               #Density
+		variable Npart equal 256                                #Number of particles
+		variable T equal 0.722                                  #Temperature 
+		variable L equal (${Npart}/${rho})^(1.0/3)              #system size 
+		variable rc equal 2^(1/6)                               #Interaction radius for Lennard-Jones (effectively WCA potential)
+		variable k_B equal 1                                    #Boltzmann Constant
   
-	variable srate equal 1                                  #Shear rate applied   
+		variable srate equal 1                                  #Shear rate applied   
 
 	########################################################################################################
         #Declaration of all variables and simulation parameters (Type 2). 
 	#These variables will be implemented in Python, and hence they are not declared in the LAMMPS script. 
   	#They are shown here for clarity
 
-	Ndaughters=1000                                         #Total number of initial states generated
+		Ndaughters=1000                                         #Total number of initial states generated
 
-	Maps=[0,21,48,37]					#Selected mapping
-	Nmappings=4						#Total number of mappings
+		Maps=[0,21,48,37]					#Selected mapping
+		Nmappings=4						#Total number of mappings
 
-	Nsteps_Thermalization = 10000                          	#Lenght of thermalization run
-	Nsteps_Decorrelation  = 10000				#Lenght of decorrelation runs
-	Nsteps_Daughter       = 1000                            #Lenght of nonequilibrium runs
+		Nsteps_Thermalization = 10000                          	#Lenght of thermalization run
+		Nsteps_Decorrelation  = 10000				#Lenght of decorrelation runs
+		Nsteps_Daughter       = 1000                            #Lenght of nonequilibrium runs
 
-	Delay=10    						#Frequency (in timesteps) for output generation along the nonequilibrium runs
-	Nsteps_eff=int(Nsteps_Daughter/Delay)+1			#Effective number of timesteps of the output
+		Delay=10    						#Frequency (in timesteps) for output generation along the nonequilibrium runs
+		Nsteps_eff=int(Nsteps_Daughter/Delay)+1			#Effective number of timesteps of the output
   
-	Nbins=100 						#Number of bins for profile output
-	Bin_Width=1.0/float(Nbins)				#Bin width for profile output 
+		Nbins=100 						#Number of bins for profile output
+		Bin_Width=1.0/float(Nbins)				#Bin width for profile output 
 
-	dt = 0.0025                                             #Bin width for profile output
+		dt = 0.0025                                             #Bin width for profile output
 
-  	rand_seed = 12345    					#Seed for random initial velocity generation
+  		rand_seed = 12345    					#Seed for random initial velocity generation
 
 	########################################################################################################
         #End of parameter declaration
                 
 
 
- 	units		    lj
-	dimension	    3
-	atom_style      full 
-	neigh_modify	delay 0 every 1
-	boundary		p p p
+ 		units		    lj
+		dimension	    3
+		atom_style      full 
+		neigh_modify	delay 0 every 1
+		boundary		p p p
 	
-	lattice         fcc ${rho}
-	region          simbox prism 0 ${L} 0 ${L} 0 ${L} 0 0 0 units box
-	create_box      1 simbox 
-	create_atoms    1 region simbox
+		lattice         fcc ${rho}
+		region          simbox prism 0 ${L} 0 ${L} 0 ${L} 0 0 0 units box
+		create_box      1 simbox 
+		create_atoms    1 region simbox
 
-	group           fluid region simbox
+		group           fluid region simbox
 
-	mass            * 1.0
-	pair_style      lj/cut ${rc}
+		mass            * 1.0
+		pair_style      lj/cut ${rc}
 
-	pair_coeff       1 1 1.0 1.0
+		pair_coeff       1 1 1.0 1.0
 
-	velocity        fluid create $T ${rand_seed}
+		velocity        fluid create $T ${rand_seed}
   
-        timestep ${dt}
-	variable Thermo_damp equal 10*${dt}
+        	timestep ${dt}
+		variable Thermo_damp equal 10*${dt}
 		
 
 
@@ -247,14 +247,14 @@ Note that no info about the thermostat is saved by the store/state command. Shou
 And each fix nvt command should have the same ID throughout the whole run.
 The mapping procedure work is the following way: in order to keep a general algorithm, each single dimension can be independently mirrored. There are 6 total dimensions, namely x,vx,y,vy,z,vz. Thus, a mapping can be identified by a set of six digits, each of which can be either 0 (no reflection) or 1 (reflection). For instance, the sequence 101100 identifies the following mapping
 
-	(101100) = (-x , vx, -y , -vy , z , vz )
+		(101100) = (-x , vx, -y , -vy , z , vz )
  
 There are a total of 2^6 independent mappings, hence the string corresponding to the selected mapping can be translated into a number from 0 to 63 by simply converting the string from a binary to a decimal number. The mappings selected here are 
 
-	( x ,  vx, y ,  vy , z ,  vz ) = 000000 = 0  (original state)
- 	( x , -vx, y , -vy , z , -vz ) = 010101 = 21  (time reversal)
-  	(-x , -vx, y ,  vy , z ,  vz ) = 110000 = 48 (x-reflection)
-  	(-x ,  vx, y , -vy , z , -vz ) = 100101 = 37 (time reversal + x-reflection)
+		( x ,  vx, y ,  vy , z ,  vz ) = 000000 = 0  (original state)
+ 		( x , -vx, y , -vy , z , -vz ) = 010101 = 21  (time reversal)
+  		(-x , -vx, y ,  vy , z ,  vz ) = 110000 = 48 (x-reflection)
+  		(-x ,  vx, y , -vy , z , -vz ) = 100101 = 37 (time reversal + x-reflection)
 
 and the mapping is applied by the following commands
 
