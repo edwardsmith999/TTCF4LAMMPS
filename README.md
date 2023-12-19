@@ -1,4 +1,4 @@
-Transient Time Correlation Function (TTCF)
+Transient Time Correlation Function (TTCF) [![CI](https://github.com/edwardsmith999/TTCF/actions/workflows/main.yml/badge.svg)](https://github.com/edwardsmith999/TTCF/actions/workflows/main.yml) 
 ==========================================
 
 The code aims at creating a user-friendly interface to implement the Transient Time Correlation Function (TTCF) method in the [LAMMPS](https://www.lammps.org/) Molecular Dynamics Simulator. This provides a way to get better statistics from molecular dynamics simulations for cases where the forcing is very weak. For example, the typical shear rates in wall-driven flow typical in Tribology experiments or the pressure gradient driving flow in fluid dynamics experiments, which at the molecular scale would be too small to measure. 
