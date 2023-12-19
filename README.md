@@ -1,14 +1,14 @@
 Transient Time Correlation Function (TTCF)
 ==========================================
 
-The code aims at creating a user-friendly interface to implement the TTCF method in LAMMPS molecular dynamics simulation. This provides a way to get better statistics from molecular dynamics simulations for very weak shear rates. This is essential to allow validation of experimental results, where often molecular system sizes are too small to be applicable.
+The code aims at creating a user-friendly interface to implement the Transient Time Correlation Function (TTCF) method in the [LAMMPS](https://www.lammps.org/) Molecular Dynamics Simulator. This provides a way to get better statistics from molecular dynamics simulations for cases where the forcing is very weak. For example, the typical shear rates in wall-driven flow typical in Tribology experiments or the pressure gradient driving flow in fluid dynamics experiments, which at the molecular scale would be too small to measure. 
 
 Quickstart
 ----------
 
-The TTCF code is designed to run in LAMMPS. First, the Python interface for LAMMPS (https://docs.lammps.org/Python_module.html) must be installed. Installation instructions are provided on the LAMMPS page for Windows, Linux and Mac here https://docs.lammps.org/Python_install.html.
+The TTCF code is designed to run in LAMMPS. First, the Python interface for LAMMPS (https://docs.lammps.org/Python_module.html) must be installed. Installation instructions are provided on the LAMMPS page for Windows, Linux and Mac here: https://docs.lammps.org/Python_install.html.
 
-After installation, to check this works as expected, open Python and try to import the lammps module.
+After installation, to check the Python LAMMPS interfaces works as expected, open Python and try to import the lammps module.
 
     python
 
@@ -19,40 +19,41 @@ To use the TTCF, start by running the example case, first clone the repository,
 
     git clone https://github.com/edwardsmith999/TTCF.git
 
-then navigate to the TTCF folder and run
-
-    python run_TTCF.py
-
-This also requires the following packages to be installed.
+next install the prerequisite,
 
     mpi4py
     numpy
     matplotlib
     
+then navigate to the TTCF folder and run,
+
+    cd TTCF
+    python run_TTCF.py
+
 For mpi4py, a version of MPI is required, either [mpich](https://www.mpich.org/) or [openMPI](https://www.open-mpi.org/) should work. This allows the code to run in parallel, which should speed up the example by as many cores as you run it on, for example if you have a 4 core CPU,
 
     mpiexec -n 4 python run_TTCF.py
 
-will divide the work over 4 processes. The example should run in about 10 minutes and gives the velocity profile for the case of SLLOD shearing flow, comparing direct averaging (DAV) to the transient time correlation function (TTCF) and looks like this,
+will divide the work over 4 processes. The example should run fairly quickly and gives the velocity profile for the case of SLLOD shearing flow, comparing direct averaging (DAV) to the transient time correlation function (TTCF). For the case of shear rate of 1, set in `system_setup.in`,
+
+    variable srate equal 1
+
+the results should look like,
 
 ![alt text](https://github.com/edwardsmith999/TTCF/blob/master/figures/TTCF_vs_DAV_SLLOD.png)
 
 The TTCF provided better statistics than the direct averaging at low shear rates, to see this, we can change the example code under `system_setup.in` we can change,
 
-    variable srate equal 1
-
-to
-
     variable srate equal 0.0001 
 
-which will look as follows,
+which will appear as follows,
 
 ![alt text](https://github.com/edwardsmith999/TTCF/blob/master/figures/TTCF_vs_DAV_SLLOD_lowstrain.png)
 
 We can already see the TTCF is giving less fluctuation about the expected linear profile.
-Is we go to even lower shear rates,
+If we go to even lower shear rates,
 
-variable srate equal 0.000001
+    variable srate equal 0.000001
 
 this becomes even more apparent,
 

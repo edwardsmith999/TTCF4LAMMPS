@@ -1,0 +1,35 @@
+name: LAMMPS test
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mpich
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install mpi4py numpy
+
+    - name: Install PyLAMMPS
+      run: |
+        pip install lammps
+
+    - name: Run tests
+      run: |
+        # Add your test commands here
