@@ -529,7 +529,8 @@ s^2_n= \dfrac{n-2}{n-1}s^2_{n-1}+\dfrac{(x_n-\bar{x}_{n-1})^2}{n}
 ```math
 \bar{x}_n= \dfrac{n-1}{n}\bar{x}_{n-1}+\dfrac{x_n}{n}
 ```
-Note that : (i) the variance can be computed only after the second sample has been generated, and (ii) it must be updated before updating the mean, since it uses the mean computed in the previous step
+Note that : (i) the variance must be computed starting from the second sample, and (ii) must be updated before updating the mean, since it uses the mean computed in the previous step
+
 	Count += 1
 
 	if Count >1
