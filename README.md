@@ -1,7 +1,43 @@
 Transient Time Correlation Function (TTCF)
 ==========================================
 
-The code aims at creating a user-friendly interface to implement the TTCF method in LAMMPS molecular dynamics simulation. The benchmark example shown here is particularly simple, and can be implemented on local machines, but the script is designed to be employed on HPC clusters for multi-core runs. 
+The code aims at creating a user-friendly interface to implement the TTCF method in LAMMPS molecular dynamics simulation. This provides a way to get better statistics from molecular dynamics simulations for very weak shear rates. This is essential to allow validation of experimental results, where often molecular system sizes are too small to be applicable.
+
+Quickstart
+----------
+
+The TTCF code is designed to run in LAMMPS. First, the Python interface for LAMMPS (https://docs.lammps.org/Python_module.html) must be installed. Installation instructions are provided on the LAMMPS page for Windows, Linux and Mac here https://docs.lammps.org/Python_install.html.
+
+After installation, to check this works as expected, open Python and try to import the lammps module.
+
+    python
+
+    >>> import lammps
+    >>> lmp = lammps.lammps()
+
+To use the TTCF, start by running the example case, first clone the repository,
+
+    git clone https://github.com/edwardsmith999/TTCF.git
+
+then navigate to the TTCF folder and run
+
+    python run_TTCF.py
+
+This also requires the following packages to be installed.
+
+    mpi4py
+    numpy
+    matplotlib
+    
+For mpi4py, a version of MPI is required, either [mpich](https://www.mpich.org/) or [openMPI](https://www.open-mpi.org/) should work. This allows the code to run in parallel, which should speed up the example by as many cores as you run it on, for example if you have a 4 core CPU,
+
+    mpiexec -n 4 python run_TTCF.py
+
+will divide the work over 4 processes. The example should run in about 10 minutes and gives the velocity profile for the case of SLLOD shearing flow. You can then adapt the script to your own example by changing the LAMMPS code as needed. The theory behind the TTCF and software is discussed below. 
+
+Theory
+------
+The benchmark example shown here is particularly simple, and can be implemented on local machines, but the script is designed to be employed on HPC clusters for multi-core runs. 
 The goal it to match the work of Borszak et al (2002) (https://doi.org/10.1080/00268970210137275), which computed shear viscosity of a homogeneous atomic system using the TTCF. 
 The dynamics is described by the SLLOD equations, shear pressure is computed over direct nonequilibrium trajectories with the TTCF and compared to the direct average (DAV).
 
@@ -19,7 +55,7 @@ After this process, a series of nonequilibrium \textit{daughter} runs are perfom
 
 ![alt text](https://github.com/edwardsmith999/TTCF/blob/master/figures/children.png)
 
-From each initial state, three further mirrored states are generated (two in the figure). These futher initial states guarantee that the phase average of the dissipation function is identically null and hence the convergence of the integral is ensured. The following mappings are used in this script
+From each initial state, three further mirrored states are generated (two in the figure). These further initial states guarantee that the phase average of the dissipation function is identically null and hence the convergence of the integral is ensured. The following mappings are used in this script
 
 ```math
 \bigl(x_i\;,\;y_i\;,\;z_i\;,\;p_{xi}\;,\;p_{yi}\;,\;p_{zi}\bigr)\longrightarrow\bigl(x_i\;,\;y_i\;,\;z_i\;,\;p_{xi}\;,\;p_{yi}\;,\;p_{zi}\bigr)\\
@@ -35,7 +71,11 @@ From each initial state, three further mirrored states are generated (two in the
 ```
 
 Hence, for each sampled state, four nonequilibrium runs are generated. 
-A compact TTCF implementation can be written within a single LAMMPS input file using the following psudocode structure
+
+Software Implementation
+--------------
+
+A compact TTCF implementation can be written within a single LAMMPS input file using the following pseudocode structure
 
 	System setup
 
@@ -136,7 +176,7 @@ Each single block is translated into LAMMPS commands as follows:
 
 
 
-The declared variables are either used by LAMMPS only (type 1) and directly declared within the input file, or managed by the python interface (type 2) and hence not declared in the input file, and shown here just for clarity purpose. The remaining set of commands are standard creation of simulation box, atom positions and velociites, and interatomic potential.
+The declared variables are either used by LAMMPS only (type 1) and directly declared within the input file, or managed by the python interface (type 2) and hence not declared in the input file, and shown here just for clarity purpose. The remaining set of commands are standard creation of simulation box, atom positions and velocities, and interatomic potential.
 
 	########### Run equilibrium thermalization ###########
 
@@ -179,7 +219,7 @@ Note that no info about the thermostat is saved by the store/state command. Shou
 		read_restart snapshot.rst
 
 And each fix nvt command should have the same ID throughout the whole run.
-The mapping procedure work is the following way: in order to keep a general algorithm, each single dimension can be independenlty mirrored. There are 6 total dimensions, namely x,y,z,vx,v,z. Thus, a mapping can be identified by a set of six digits, each of which can be either 0 (no reflection) or 1 (reflection). For instance, the sequence 101100 identifies the following mapping
+The mapping procedure work is the following way: in order to keep a general algorithm, each single dimension can be independently mirrored. There are 6 total dimensions, namely x,y,z,vx,v,z. Thus, a mapping can be identified by a set of six digits, each of which can be either 0 (no reflection) or 1 (reflection). For instance, the sequence 101100 identifies the following mapping
 
 	(101100) = (-x , y , -z , -vx , vy , vz )
  
@@ -217,7 +257,7 @@ and the mapping is applied by the following commands
 		set             atom * vy v_vy 
 		set             atom * vz v_vz
 
-where the first block of commands traslates back a decimal number into its binary representation and selects each single digit, the second block calculates the corresponding reflected dimension (1 inverts sign, 0 leaves unchanged), and the third block updates the positions and momenta.
+where the first block of commands translates back a decimal number into its binary representation and selects each single digit, the second block calculates the corresponding reflected dimension (1 inverts sign, 0 leaves unchanged), and the third block updates the positions and momenta.
 The last two blocks are the equilibrium sampling process and the daughter setup. 
 
 	########### Run equilibrium sampling ###########
@@ -273,15 +313,15 @@ The last two blocks are the equilibrium sampling process and the daughter setup.
 
 
 At the end of each block (thermalization, sampling, nonequilibrium run), each fix and compute is erased. The state generated from the equilibrium sampling trajectory is used as starting point for each daughter, as well as imported again for the last time when the sampling process is restored, and the next initial state is produced. 
-In this examples both profile (associated to a specific point of the system) and global (associated to the enire system) variables are computed, in order to provide an example for both outputs. The profile variable is the velocity, whereas the global variables are the shear pressure and the dissipation function, respectively. In this script, the dissipation function must alway be the last variable listed on the fin ave/time command. For the SLLOD equation, we have
+In this examples both profile (associated to a specific point of the system) and global (associated to the entire system) variables are computed, in order to provide an example for both outputs. The profile variable is the velocity, whereas the global variables are the shear pressure and the dissipation function, respectively. In this script, the dissipation function must always be the last variable listed on the fin ave/time command. For the SLLOD equation, we have
 ```math
 \Omega(t)=\dfrac{Vp_{xy}(t)}{k_B T} 
 ```
-Note that the dissipation function at t=0 can be computed either from the mother or from the daughter trajectory. However, the LAMMPS implementation of the SLLOD algorithm contains various errors which result in a mismatch between the two calculations. However, the errors have minor effects of the final outcome. For simplicity, in the dissipation function is here monitired over the entire daughter trajectory. 
+Note that the dissipation function at t=0 can be computed either from the mother or from the daughter trajectory. However, the LAMMPS implementation of the SLLOD algorithm contains various errors which result in a mismatch between the two calculations. However, the errors have minor effects of the final outcome. For simplicity, in the dissipation function is here monitored over the entire daughter trajectory. 
 The same setup can be used with different systems, provided the various parameters, the dynamics, and the dissipation function are properly modified.
-The Python interface described here aims at managing the entire LAMMPS simulation without the need to produce one or more output files for each nonequilibrium run. Since TTCF calculation requires thousands, or up to million nonequilibrium runs, the file management can become cumbersome and substantially decrease the performaces in HPC clusters.
-The script uses the python LAMMPS interface (https://docs.lammps.org/Python_head.html), which allows to manage the LAMMPS run from python directly. As such, the otuput produced by the fix ave/time and fix ave/chuck commands are not written on file, but taken as input by Python.
-The Python script run_TTCF.py is strictured as follows:
+The Python interface described here aims at managing the entire LAMMPS simulation without the need to produce one or more output files for each nonequilibrium run. Since TTCF calculation requires thousands, or up to million nonequilibrium runs, the file management can become cumbersome and substantially decrease the performance in HPC clusters.
+The script uses the python LAMMPS interface (https://docs.lammps.org/Python_head.html), which allows to manage the LAMMPS run from python directly. As such, the output produced by the fix ave/time and fix ave/chuck commands are not written on file, but taken as input by Python.
+The Python script run_TTCF.py is structured as follows:
 
 SPLIT THE SIMULATION INTO N SINGLE-CORE RUNS (N # OF CORES SELECTED) 
 ------
@@ -320,7 +360,7 @@ If needed, these parameters will be passed to LAMMPS via proper functions.
 	dt = 0.0025
 
 
-In this section , the user can select the quanties to generate as output.
+In this section , the user can select the quantities to generate as output.
 IMPORTANT: THE RELATED COMPUTES MUST BE DECLARED IN THE DAUGHTER SETION AND MUST MATCH THE NAMES GIVEN HERE
 
 
@@ -349,7 +389,7 @@ RUN THERMALIZATION
 ------
 
 This block appends to the existing LAMMPS input file the set of commands listed in the "Run equilibrium thermalization" block. 
-The operation is perfomed using lmp.command("......") which enables one to attach to the LAMMPS object lmp any arbitrary LAMMPS command, including variable declaration (passing Type 2 parameters to LAMMPS) and run.
+The operation is performed using lmp.command("......") which enables one to attach to the LAMMPS object lmp any arbitrary LAMMPS command, including variable declaration (passing Type 2 parameters to LAMMPS) and run.
 
 	lmp.command("timestep " + str(dt))
 	lmp.command("variable Thermo_damp equal " +  str(10*dt))

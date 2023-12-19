@@ -97,9 +97,9 @@ lmp.command("unfix NVT_thermalization")
 state = save_state(lmp, "snapshot")
 
 Count = 0
-for Nd in range(1,Ndaughters+1,1):
+for Nd in range(0,Ndaughters,1):
 
-    print("Proc", irank+1, " with daughter =", Nd, " of ", Ndaughters,  flush=True)
+    print("Proc", irank+1, " with daughter =", Nd+1, " of ", Ndaughters,  flush=True)
 
     #Sampling of the daughters initial state
     load_state(lmp, state)
@@ -117,15 +117,14 @@ for Nd in range(1,Ndaughters+1,1):
     for Nm in range(Nmappings):
 
         #Load child state
-        load_state(lmp, state)
+        load_state(lmp)
 
         #Apply mapping    
         lmp.command("variable map equal " + str(Maps[Nm]))
-        lmp.command("variable Daughter_index equal " + str(Nd))
         lmp.command("include ./mappings.lmp")
 
         #Apply forces to system
-        lmp.command("include ./set_daughter.lmp")
+        set_daughter_dynamics(lmp,srate)
 
         #Setup all computes
         lmp.command(computestr)
@@ -156,7 +155,7 @@ for Nd in range(1,Ndaughters+1,1):
         lmp.command("uncompute shear_T")
         lmp.command("uncompute shear_P")
        
-        lmp.command("include ./unset_daughter.lmp")
+        unset_daughter_dynamics(lmp)
 
         #Sum the mappings together
         DAV_profile_partial  += data_profile[:,:,:]
