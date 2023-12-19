@@ -1,7 +1,7 @@
 from mpi4py import MPI
 from lammps import lammps
 from lammps import LMP_STYLE_GLOBAL, LMP_TYPE_VECTOR, LMP_TYPE_ARRAY
-
+import matplotlib.pyplot as plt
 import numpy as np
 
 def sum_over_MPI(A, irank, comm, root=0):
