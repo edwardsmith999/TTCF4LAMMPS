@@ -33,7 +33,7 @@ For mpi4py, a version of MPI is required, either [mpich](https://www.mpich.org/)
 
     mpiexec -n 4 python run_TTCF.py
 
-will divide the work over 4 processes.
+will divide the work over 4 processes. The example should run in about 10 minutes and gives the velocity profile for the case of SLLOD shearing flow. You can then adapt the script to your own example by changing the LAMMPS code as needed. The theory behind the TTCF and software is discussed below. 
 
 Theory
 ------
@@ -72,7 +72,7 @@ From each initial state, three further mirrored states are generated (two in the
 
 Hence, for each sampled state, four nonequilibrium runs are generated. 
 
-Implementation
+Software Implementation
 --------------
 
 A compact TTCF implementation can be written within a single LAMMPS input file using the following pseudocode structure
