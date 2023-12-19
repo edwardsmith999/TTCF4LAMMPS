@@ -122,6 +122,33 @@ def unset_list(lmp, setlist):
             #Not need to unset variables
             pass
 
+def apply_mapping(lmp, map_index):
+
+    map_list=["x","y","z"]
+    N=len(map_list)
+    
+    ind=map_index
+     
+    cmdstr=""
+    for i in range(N):
+
+        mp = ind % 2
+        ind = np.floor(ind/2)
+    
+        cmdstr += "variable map atom  v"+map_list[N-1-i]+"-(2*v"+map_list[N-1-i]+"*"+str(mp)+")\n"
+        cmdstr += "set atom * v"+map_list[N-1-i]+" v_map\n"
+
+
+        mp=ind % 2
+        ind = np.floor(ind/2)
+
+        cmdstr += "variable map atom  "+map_list[N-1-i]+"+(("+map_list[N-1-i]+"hi-2*"+map_list[N-1-i]+")*"+str(mp)+")\n"
+        cmdstr += "set atom * "+map_list[N-1-i]+" v_map\n"
+
+    for line in cmdstr.split("\n"):
+        lmp.command(line)
+
+    return None
 
 def sum_prev_dt(A, t):
     return (   A[t-2,...] 
