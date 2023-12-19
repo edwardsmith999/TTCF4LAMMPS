@@ -245,16 +245,16 @@ Note that no info about the thermostat is saved by the store/state command. Shou
 		read_restart snapshot.rst
 
 And each fix nvt command should have the same ID throughout the whole run.
-The mapping procedure work is the following way: in order to keep a general algorithm, each single dimension can be independently mirrored. There are 6 total dimensions, namely x,y,z,vx,v,z. Thus, a mapping can be identified by a set of six digits, each of which can be either 0 (no reflection) or 1 (reflection). For instance, the sequence 101100 identifies the following mapping
+The mapping procedure work is the following way: in order to keep a general algorithm, each single dimension can be independently mirrored. There are 6 total dimensions, namely x,vx,y,vy,z,vz. Thus, a mapping can be identified by a set of six digits, each of which can be either 0 (no reflection) or 1 (reflection). For instance, the sequence 101100 identifies the following mapping
 
-	(101100) = (-x , y , -z , -vx , vy , vz )
+	(101100) = (-x , vx, -y , -vy , z , vz )
  
 There are a total of 2^6 independent mappings, hence the string corresponding to the selected mapping can be translated into a number from 0 to 63 by simply converting the string from a binary to a decimal number. The mappings selected here are 
 
-	( x , y , z ,  vx ,  vy ,  vz ) = 000000 = 0  (original state)
- 	( x , y , z , -vx , -vy , -vz ) = 000111 = 7  (time reversal)
-  	(-x , y , z , -vx ,  vy ,  vz ) = 100100 = 36 (x-reflection)
-  	(-x , y , z ,  vx , -vy , -vz ) = 100011 = 35 (time reversal + x-reflection)
+	( x ,  vx, y ,  vy , z ,  vz ) = 000000 = 0  (original state)
+ 	( x , -vx, y , -vy , z , -vz ) = 010101 = 21  (time reversal)
+  	(-x , -vx, y ,  vy , z ,  vz ) = 110000 = 48 (x-reflection)
+  	(-x ,  vx, y , -vy , z , -vz ) = 100101 = 37 (time reversal + x-reflection)
 
 and the mapping is applied by the following commands
 
