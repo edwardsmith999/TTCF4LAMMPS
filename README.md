@@ -1,7 +1,45 @@
 Transient Time Correlation Function (TTCF)
 ==========================================
 
-The code aims at creating a user-friendly interface to implement the TTCF method in LAMMPS molecular dynamics simulation. The benchmark example shown here is particularly simple, and can be implemented on local machines, but the script is designed to be employed on HPC clusters for multi-core runs. 
+The code aims at creating a user-friendly interface to implement the TTCF method in LAMMPS molecular dynamics simulation. This provides a way to get better statisitics from molecular dynamics simulations for very weak shear rates. This is essential to allow validation of experimental results, where often molecular system sizes are too small to be applicable.
+
+Quickstart
+----------
+
+The TTCF code is designed to run in LAMMPS. First, the Python interface for LAMMPS (https://docs.lammps.org/Python_module.html) must be installed. Installation instructions are provided on the LAMMPS page for Windows, Linux and Mac here https://docs.lammps.org/Python_install.html.
+
+After installation, to check this works as expected, open Python and try to import the lammps module.
+
+    python
+    Python 3.8.5 (default, Sep  5 2020, 10:50:12)
+    [GCC 10.2.0] on linux
+    Type "help", "copyright", "credits" or "license" for more information.
+    >>> import lammps
+    >>> lmp = lammps.lammps()
+
+To use the TTCF, start by running the example case, first clone the repository,
+
+    git clone https://github.com/edwardsmith999/TTCF.git
+
+then navigate to the TTCF folder and run
+
+    python run_TTCF.py
+
+This also requires the following packages to be installed.
+
+    mpi4py
+    numpy
+    matplotlib
+    
+For mpi4py, a version of MPI is required, either mpich or openMPI should work. This allows the code to run in parallel, which should speed up the example by as many cores as you run it on, for example if you have a 4 core CPU,
+
+    mpiexec -n 4 python run_TTCF.py
+
+will divide the work over 4 processes.
+
+Theory
+------
+The benchmark example shown here is particularly simple, and can be implemented on local machines, but the script is designed to be employed on HPC clusters for multi-core runs. 
 The goal it to match the work of Borszak et al (2002) (https://doi.org/10.1080/00268970210137275), which computed shear viscosity of a homogeneous atomic system using the TTCF. 
 The dynamics is described by the SLLOD equations, shear pressure is computed over direct nonequilibrium trajectories with the TTCF and compared to the direct average (DAV).
 
@@ -35,6 +73,10 @@ From each initial state, three further mirrored states are generated (two in the
 ```
 
 Hence, for each sampled state, four nonequilibrium runs are generated. 
+
+Implementation
+--------------
+
 A compact TTCF implementation can be written within a single LAMMPS input file using the following psudocode structure
 
 	System setup
