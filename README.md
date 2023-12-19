@@ -263,10 +263,10 @@ and the mapping is applied by the following commands
 		#variable map equal to a number from 0 to 63
   
 		variable mpx equal     floor((${map})/(2^5))
-		variable mpy equal     floor((${map}-(${mpx}*2^5))/(2^4))
-		variable mpz equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4))/(2^3))
-		variable mvx equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4)-(${mpz}*2^3))/(2^2))
-		variable mvy equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4)-(${mpz}*2^3)-(${mvx}*2^2))/(2^1))
+		variable mvy equal     floor((${map}-(${mpx}*2^5))/(2^4))
+		variable mpy equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4))/(2^3))
+		variable mvy equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4)-(${mpz}*2^3))/(2^2))
+		variable mpz equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4)-(${mpz}*2^3)-(${mvx}*2^2))/(2^1))
 		variable mvz equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4)-(${mpz}*2^3)-(${mvx}*2^2)-(${mvy}*2^1))/(2^0))
 
 		variable        px atom x+((xhi-2*x)*${mpx})
