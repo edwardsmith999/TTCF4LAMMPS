@@ -175,28 +175,28 @@ Each single block is translated into LAMMPS commands as follows:
                 
 
 
- 		units		    lj
-		dimension	    3
-		atom_style      full 
-		neigh_modify	delay 0 every 1
-		boundary		p p p
+ 	units		    lj
+	dimension	    3
+	atom_style      full 
+	neigh_modify	delay 0 every 1
+	boundary		p p p
 	
-		lattice         fcc ${rho}
-		region          simbox prism 0 ${L} 0 ${L} 0 ${L} 0 0 0 units box
-		create_box      1 simbox 
-		create_atoms    1 region simbox
+	lattice         fcc ${rho}
+	region          simbox prism 0 ${L} 0 ${L} 0 ${L} 0 0 0 units box
+	create_box      1 simbox 
+	create_atoms    1 region simbox
 
-		group           fluid region simbox
+	group           fluid region simbox
 
-		mass            * 1.0
-		pair_style      lj/cut ${rc}
+	mass            * 1.0
+	pair_style      lj/cut ${rc}
 
-		pair_coeff       1 1 1.0 1.0
+	pair_coeff       1 1 1.0 1.0
 
-		velocity        fluid create $T ${rand_seed}
+	velocity        fluid create $T ${rand_seed}
   
-                timestep ${dt}
-		variable Thermo_damp equal 10*${dt}
+        timestep ${dt}
+	variable Thermo_damp equal 10*${dt}
 		
 
 
