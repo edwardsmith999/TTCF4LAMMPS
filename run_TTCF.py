@@ -7,6 +7,24 @@ import numpy as np
 
 from utils import *
 
+def set_daughter_dynamics(lmp):
+    
+    cmdstr  = "variable vx_shear atom vx+${srate}*y\n"
+    cmdstr += "set atom * vx v_vx_shear\n"
+    cmdstr += "fix box_deform all deform 1 xy erate ${srate} remap v units box\n"
+    cmdstr += "fix NVT_SLLOD all nvt/sllod temp ${T} ${T} ${Thermo_damp}\n"
+    for line in cmdstr.split("\n"):
+        lmp.command(line)
+    return None
+
+def unset_daughter_dynamics(lmp):
+
+    cmdstr  = "unfix box_deform\n"
+    cmdstr += "unfix NVT_SLLOD\n"
+    for line in cmdstr.split("\n"):
+        lmp.command(line)
+    return None
+
 #This code is run using MPI - each processes will
 #run this same bit code with its own memory
 comm = MPI.COMM_WORLD
