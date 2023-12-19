@@ -101,6 +101,7 @@ class TTCF():
         self.irank = irank
         self.comm = comm
         self.root = root
+        self.nprocs = comm.Get_size()
         self.output_finalised = True
 
         #Get FINAL COLUMN BECAUSE BY DEFAULT LAMMPS GIVE YOU ALSO THE USELESS INFO ABOUT THE BINS.
