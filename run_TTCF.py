@@ -3,7 +3,7 @@ from lammps import lammps
 
 import numpy as np
 
-from utils import *
+from TTCF import utils
 from TTCF import TTCF
 
 #This code is run using MPI - each processes will
@@ -17,10 +17,10 @@ print("Proc {:d} out of {:d} procs".format(irank+1,nprocs), flush=True)
 
 #Define lengths for all runs, number of Daughters, etc
 Tot_Daughters         = 1000
-Maps                  = [0,21,48,37] #[0,7,36,35]
+Maps                  = [0,21,48,37]
 Nsteps_Thermalization = 10000
 Nsteps_Decorrelation  = 10000
-Nsteps_Daughter       = 1000
+Nsteps_Daughter       = 500
 Delay                 = 10
 Nbins                 = 100
 dt                    = 0.0025
@@ -61,7 +61,7 @@ setlist.append("fix Global_variables all ave/time 1 1 {} {} ave one".format(Dela
 
 
 #Create TTCF class 
-ttcf = TTCF(global_variables, profile_variables, Nsteps, Nbins, Nmappings)
+ttcf = TTCF.TTCF(global_variables, profile_variables, Nsteps, Nbins, Nmappings)
 data_global = np.zeros([Nsteps, len(global_variables)])
 data_profile  = np.zeros([Nsteps, Nbins, len(profile_variables) + 2])
 
@@ -84,7 +84,7 @@ lmp.command("run " + str(Nsteps_Thermalization))
 lmp.command("unfix NVT_thermalization")
 
 #Save snapshot to use for daughters
-state = save_state(lmp, "snapshot")
+state = utils.save_state(lmp, "snapshot")
 
 #Loop over all sets of daughters
 for Nd in range(Ndaughters):
@@ -92,42 +92,40 @@ for Nd in range(Ndaughters):
     print("Proc", irank+1, " with daughter =", Nd+1, " of ", Ndaughters,  flush=True)
 
     #Run daughter from initial state to decorrelate from mother
-    load_state(lmp, state)
+    utils.load_state(lmp, state)
     lmp.command("fix NVT_sampling all nvt temp ${T} ${T} " +  str(Thermo_damp) + " tchain 1")
     lmp.command("run " + str(Nsteps_Decorrelation))
     lmp.command("unfix NVT_sampling")
-    state = save_state(lmp, "snapshot")
+    state = utils.save_state(lmp, "snapshot")
 
     #Branch off daughters for each mapping
     for Nm in range(Nmappings):
 
         #Load child state
-        load_state(lmp, state)
+        utils.load_state(lmp, state)
 
         #Apply mapping    
-        #lmp.command("variable map equal " + str(Maps[Nm]))
-        #lmp.command("include ./mappings.lmp")
-        apply_mapping(lmp, Maps[Nm])
+        utils.apply_mapping(lmp, Maps[Nm])
 
         #Apply forces and setup outputs
-        set_list(lmp, setlist)
+        utils.set_list(lmp, setlist)
 
         #Run zero to setup case
         lmp.command("run 0 pre yes post yes")
 
         #Extract profile and time averaged (global) data from LAMMPS
-        data_profile[0, :, :]= get_fix_data(lmp, "Profile_variables", profile_variables, Nbins)
-        data_global[0, :] = get_fix_data(lmp, "Global_variables", global_variables)
+        data_profile[0, :, :] = utils.get_fix_data(lmp, "Profile_variables", profile_variables, Nbins)
+        data_global[0, :] = utils.get_fix_data(lmp, "Global_variables", global_variables)
         omega = data_global[0, -1] 
 
         #Run over time        
         for t in range(1, Nsteps):
             lmp.command("run " + str(Delay) + " pre yes post no")
-            data_profile[t, :, :]= get_fix_data(lmp, "Profile_variables", profile_variables, Nbins)
-            data_global[t, :] = get_fix_data(lmp, "Global_variables", global_variables)
+            data_profile[t, :, :] = utils.get_fix_data(lmp, "Profile_variables", profile_variables, Nbins)
+            data_global[t, :] = utils.get_fix_data(lmp, "Global_variables", global_variables)
 
         #Turn off forces and outputs
-        unset_list(lmp, setlist)
+        utils.unset_list(lmp, setlist)
 
         #Sum the mappings together
         ttcf.add_mappings(data_profile, data_global, omega)

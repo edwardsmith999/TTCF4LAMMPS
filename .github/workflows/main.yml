@@ -32,9 +32,13 @@ jobs:
 
     - name: Test pyLAMMPS Import
       run: |
-        python test/test_lammps_import.py
+        python -m unittest test.test_lammps_import
 
-    - name: Test TTCF runs without error
+    - name: Test utils
+      run: |
+        python  -m unittest test.test_utils
+
+    - name: Test run_TTCF example completes without error
       run: |
         python run_TTCF.py
 
