@@ -30,6 +30,14 @@ jobs:
       run: |
         pip install lammps
 
-    - name: Run tests
+    - name: Test pyLAMMPS Import
       run: |
-        # Add your test commands here
+        python test/test_lammps_import.py
+
+    - name: Test TTCF runs without error
+      run: |
+        python run_TTCF.py
+
+    - name: Test output
+      run: |
+        python test
