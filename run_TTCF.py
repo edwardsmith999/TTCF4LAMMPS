@@ -17,10 +17,10 @@ print("Proc {:d} out of {:d} procs".format(irank+1,nprocs), flush=True)
 
 #Define lengths for all runs, number of Daughters, etc
 Tot_Daughters         = 1000
-Maps                  = [0,7,36,35]
+Maps                  = [0,21,48,37] #[0,7,36,35]
 Nsteps_Thermalization = 10000
 Nsteps_Decorrelation  = 10000
-Nsteps_Daughter       = 500
+Nsteps_Daughter       = 1000
 Delay                 = 10
 Nbins                 = 100
 dt                    = 0.0025
@@ -105,8 +105,9 @@ for Nd in range(Ndaughters):
         load_state(lmp, state)
 
         #Apply mapping    
-        lmp.command("variable map equal " + str(Maps[Nm]))
-        lmp.command("include ./mappings.lmp")
+        #lmp.command("variable map equal " + str(Maps[Nm]))
+        #lmp.command("include ./mappings.lmp")
+        apply_mapping(lmp, Maps[Nm])
 
         #Apply forces and setup outputs
         set_list(lmp, setlist)
