@@ -153,7 +153,7 @@ Each single block is translated into LAMMPS commands as follows:
 
 	Ndaughters=1000                                         #Total number of initial states generated
 
-	Maps=[0,7,36,35]					#Selected mapping
+	Maps=[0,21,48,37]					#Selected mapping
 	Nmappings=4						#Total number of mappings
 
 	Nsteps_Thermalization = 10000                          	#Lenght of thermalization run
