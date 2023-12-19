@@ -33,7 +33,32 @@ For mpi4py, a version of MPI is required, either [mpich](https://www.mpich.org/)
 
     mpiexec -n 4 python run_TTCF.py
 
-will divide the work over 4 processes. The example should run in about 10 minutes and gives the velocity profile for the case of SLLOD shearing flow. You can then adapt the script to your own example by changing the LAMMPS code as needed. The theory behind the TTCF and software is discussed below. 
+will divide the work over 4 processes. The example should run in about 10 minutes and gives the velocity profile for the case of SLLOD shearing flow, comparing direct averaging (DAV) to the transient time correlation function (TTCF) and looks like this,
+
+![alt text](https://github.com/edwardsmith999/TTCF/blob/master/figures/TTCF_vs_DAV_SLLOD.png)
+
+The TTCF provided better statistics than the direct averaging at low shear rates, to see this, we can change the example code under `system_setup.in` we can change,
+
+    variable srate equal 1
+
+to
+
+    variable srate equal 0.0001 
+
+which will look as follows,
+
+![alt text](https://github.com/edwardsmith999/TTCF/blob/master/figures/TTCF_vs_DAV_SLLOD_lowstrain.png)
+
+We can already see the TTCF is giving less fluctuation about the expected linear profile.
+Is we go to even lower shear rates,
+
+variable srate equal 0.000001
+
+this becomes even more apparent,
+
+![alt text](https://github.com/edwardsmith999/TTCF/blob/master/figures/TTCF_vs_DAV_SLLOD_lowerstrain.png)
+
+You can adapt the script to your own example by changing the LAMMPS code as needed. The theory behind the TTCF and software is discussed below. 
 
 Theory
 ------
