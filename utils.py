@@ -104,7 +104,25 @@ def load_state(lmp, state):
         lmp.command(line)
     return None
 
+
+def set_list(lmp, setlist):
     
+    for s in setlist:
+        lmp.command(s)
+
+def unset_list(lmp, setlist):
+
+    for s in setlist:
+        w = s.split()
+        if w[0] == "compute":
+            lmp.command("uncompute " + w[1])
+        elif w[0] == "fix":
+            lmp.command("unfix " + w[1])
+        else:
+            #Not need to unset variables
+            pass
+
+
 def sum_prev_dt(A, t):
     return (   A[t-2,...] 
             +4*A[t-1,...] 

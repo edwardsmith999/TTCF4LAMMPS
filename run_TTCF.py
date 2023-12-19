@@ -1,29 +1,10 @@
 from mpi4py import MPI
 from lammps import lammps
-from lammps import LMP_STYLE_GLOBAL, LMP_TYPE_VECTOR, LMP_TYPE_ARRAY
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 from utils import *
-
-def set_daughter_dynamics(lmp):
-    
-    cmdstr  = "variable vx_shear atom vx+${srate}*y\n"
-    cmdstr += "set atom * vx v_vx_shear\n"
-    cmdstr += "fix box_deform all deform 1 xy erate ${srate} remap v units box\n"
-    cmdstr += "fix NVT_SLLOD all nvt/sllod temp ${T} ${T} ${Thermo_damp}\n"
-    for line in cmdstr.split("\n"):
-        lmp.command(line)
-    return None
-
-def unset_daughter_dynamics(lmp):
-
-    cmdstr  = "unfix box_deform\n"
-    cmdstr += "unfix NVT_SLLOD\n"
-    for line in cmdstr.split("\n"):
-        lmp.command(line)
-    return None
 
 #This code is run using MPI - each processes will
 #run this same bit code with its own memory
@@ -54,20 +35,41 @@ Bin_Width=1.0/float(Nbins)
 
 dt = 0.0025
 
-#Define profile quantities to compute
-profile_variables = ['vx']
-#Define bin discretization
-computestr = "compute profile_layers all chunk/atom bin/1d y lower "+str(Bin_Width)+" units reduced"
-#Profile (ave/chunk fix)
-profilestr = "fix Profile_variables all ave/chunk 1 1 {} profile_layers {} ave one".format(Delay, ' '.join(profile_variables))
-global_variables = ['c_shear_P[4]', 'v_Omega']
-#And global (ave/time fix)
-globalstr = "fix Global_variables all ave/time 1 1 {} {} ave one".format(Delay, ' '.join(global_variables))
+# Here we can define all variables, computes and fixs in lammps format that we want to set for each daughter
+# and turn off at the end
+setlist = []
 
+# =============== Forces =========================
+#For the case of SLLOD these apply the forces
+setlist.append("variable vx_shear atom vx+${srate}*y")
+setlist.append("set atom * vx v_vx_shear")
+setlist.append("fix box_deform all deform 1 xy erate ${srate} remap v units box")
+setlist.append("fix NVT_SLLOD all nvt/sllod temp ${T} ${T} ${Thermo_damp}")
+
+# ============= Outputs =========================
+#Here we define all the computes to get outputs from the simulation
+
+#Profile 1D chunks here, can add anything from https://docs.lammps.org/fix_ave_chunk.html
+profile_variables = ['vx']
+
+#Define bin discretization
+setlist.append("compute profile_layers all chunk/atom bin/1d y lower "+str(Bin_Width)+" units reduced")
+#Profile (ave/chunk fix)
+setlist.append("fix Profile_variables all ave/chunk 1 1 {} profile_layers {} ave one".format(Delay, ' '.join(profile_variables)))
+#Define computes to get Omega
+setlist.append("compute		shear_T all temp/deform")
+setlist.append("compute        shear_P all pressure shear_T ")
+setlist.append("variable       Omega equal -c_shear_P[4]*(xhi-xlo)*(yhi-ylo)*(zhi-zlo)*${srate}/(${k_B}*${T})")
+#And global (ave/time fix) variables, often custom computes/variables, see https://docs.lammps.org/fix_ave_time.html
+global_variables = ['c_shear_P[4]', 'v_Omega']
+#global ave/time fix
+setlist.append("fix Global_variables all ave/time 1 1 {} {} ave one".format(Delay, ' '.join(global_variables)))
+
+
+#Allocate empty arrays for data
 avetime_ncol = len(global_variables)
 avechunk_ncol = len(profile_variables) + 2
 
-#Allocate empty arrays for data
 DAV_global_mean  = np.zeros([Nsteps_eff, avetime_ncol])
 DAV_profile_mean   = np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
 
@@ -80,17 +82,28 @@ DAV_profile_var   = np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
 TTCF_global_var  = np.zeros([Nsteps_eff, avetime_ncol])
 TTCF_profile_var   = np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
 
-data_global = np.zeros([Nsteps_eff, avetime_ncol])
-data_profile  = np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
-
 TTCF_global_partial = np.zeros([Nsteps_eff, avetime_ncol])
 TTCF_profile_partial= np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
 
 DAV_profile_partial= np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
 DAV_global_partial = np.zeros([Nsteps_eff, avetime_ncol])
-        
-integrand_profile_partial = np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
+
+data_global = np.zeros([Nsteps_eff, avetime_ncol])
+data_profile  = np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
+
 integrand_global_partial  = np.zeros([Nsteps_eff, avetime_ncol])
+integrand_profile_partial = np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
+
+#Note a shorthand for this
+#for tp in ['DAV', 'TTCF']:
+#    for a in ['mean', 'var', 'partial']:
+#        d[dp+"_global_"+a] = np.zeros([Nsteps_eff, avetime_ncol])
+#        d[dp+"profile"+a] = np.zeros([Nsteps_eff, Nbins, avechunk_ncol])
+#Which would allow e.g.
+#for tp in ['DAV', 'TTCF']:
+#    for a in ['mean', 'var', 'partial']:
+#       for gp in ['_global_', '_profile_']:
+#            d[dp+gp+a+"_total"] = sum_over_MPI(d[dp+gp+a])
 
 #Create random seed
 if nprocs == 1:
@@ -135,22 +148,14 @@ for Nd in range(0,Ndaughters,1):
     for Nm in range(Nmappings):
 
         #Load child state
-        load_state(lmp)
+        load_state(lmp, state)
 
         #Apply mapping    
         lmp.command("variable map equal " + str(Maps[Nm]))
         lmp.command("include ./mappings.lmp")
 
-        #Apply forces to system
-        set_daughter_dynamics(lmp,srate)
-
-        #Setup all computes
-        lmp.command(computestr)
-        lmp.command(profilestr)
-        lmp.command("compute		shear_T all temp/deform")     
-        lmp.command("compute        shear_P all pressure shear_T ")
-        lmp.command("variable       Omega equal -c_shear_P[4]*(xhi-xlo)*(yhi-ylo)*(zhi-zlo)*${srate}/(${k_B}*${T})")
-        lmp.command(globalstr)
+        #Apply forces and setup outputs
+        set_list(lmp, setlist)
 
         #Run zero to setup case
         lmp.command("run 0 pre yes post yes")
@@ -166,14 +171,8 @@ for Nd in range(0,Ndaughters,1):
             data_profile[t, :, :]= get_fix_data(lmp, "Profile_variables", profile_variables, Nbins)
             data_global[t, :] = get_fix_data(lmp, "Global_variables", global_variables)
 
-        #Turn off computes
-        lmp.command("unfix Profile_variables")
-        lmp.command("unfix Global_variables")
-        lmp.command("uncompute profile_layers")
-        lmp.command("uncompute shear_T")
-        lmp.command("uncompute shear_P")
-       
-        unset_daughter_dynamics(lmp)
+        #Turn off forces and outputs
+        unset_list(lmp, setlist)
 
         #Sum the mappings together
         DAV_profile_partial  += data_profile[:,:,:]
