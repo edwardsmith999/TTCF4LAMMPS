@@ -13,11 +13,11 @@ The TTCF algorithm requires integration of the phase space average of the correl
 
 The average is performed over nonequilibrium trajectories initial conditions sampled from the equilibrium ensemble associated with the system. The easiest way to achieve this is to follow the system over an equilibrium \textit{mother} trajectory. After a thermalization to ensure the system is in thermodynamic equilibrium, the state of the system (set of all positions and momenta) is periodically sampled. The procedure is shown is the figure below
 
-![alt text](https://github.com/edwardsmith999/TTCF/blob/master/mother.png)
+![alt text](https://github.com/edwardsmith999/TTCF/blob/master/figures/mother.png)
 
 After this process, a series of nonequilibrium \textit{daughter} runs are perfomed, where their initial conditions are the states sampled from the equilibrium trajectories. 
 
-![alt text](https://github.com/edwardsmith999/TTCF/blob/master/children.png)
+![alt text](https://github.com/edwardsmith999/TTCF/blob/master/figures/children.png)
 
 From each initial state, three further mirrored states are generated (two in the figure). These futher initial states guarantee that the phase average of the dissipation function is identically null and hence the convergence of the integral is ensured. The following mappings are used in this script
 
@@ -531,7 +531,7 @@ And normalized again over the number of runs. Finally, the standard error is com
 
 The script plots the output using matplotlib, which should look as follows (note that due to random seed, the exact peaks might be different but trends should be the same),
 
-![alt text](https://github.com/edwardsmith999/TTCF/blob/master/TTCF_vs_DAV_SLLOD.png)
+![alt text](https://github.com/edwardsmith999/TTCF/blob/master/figures/TTCF_vs_DAV_SLLOD.png)
 
 The variables are then saved on file
 
