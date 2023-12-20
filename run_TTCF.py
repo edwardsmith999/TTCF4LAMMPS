@@ -79,9 +79,7 @@ lmp = lammps(comm=MPI.COMM_SELF, cmdargs=args)
 #Run equilibration  
 lmp.file("system_setup.in")
 lmp.command("timestep " + str(dt))
-lmp.command("fix NVT_thermalization all nvt temp ${T} ${T} " +  str(Thermo_damp) + " tchain 1")
-lmp.command("run " + str(Nsteps_Thermalization))
-lmp.command("unfix NVT_thermalization")
+utils.run_mother_trajectory(lmp,Nsteps_Thermalization,Thermo_damp)
 
 #Save snapshot to use for daughters
 state = utils.save_state(lmp, "snapshot")
@@ -93,9 +91,8 @@ for Nd in range(Ndaughters):
 
     #Run mother starting from previous sample to generate the next sample
     utils.load_state(lmp, state)
-    lmp.command("fix NVT_sampling all nvt temp ${T} ${T} " +  str(Thermo_damp) + " tchain 1")
-    lmp.command("run " + str(Nsteps_Decorrelation))
-    lmp.command("unfix NVT_sampling")
+    utils.run_mother_trajectory(lmp,Nsteps_Thermalization,Thermo_damp)
+
     state = utils.save_state(lmp, "snapshot")
 
     #Branch off daughters for each mapping
