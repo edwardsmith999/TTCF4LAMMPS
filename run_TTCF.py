@@ -24,7 +24,7 @@ Nsteps_Daughter       = 500
 Delay                 = 10
 Nbins                 = 100
 dt                    = 0.0025
-
+showplots             = False
 #Derived quantities
 Nmappings=len(Maps)
 Ndaughters=int(np.ceil(Tot_Daughters/nprocs))
@@ -143,7 +143,8 @@ if irank == root:
 ttcf.finalise_output(irank, comm)
 
 #Plot and output data
-ttcf.plot_data()
+if showplots:
+    ttcf.plot_data()
 ttcf.save_data()
 
 MPI.Finalize()
