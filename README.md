@@ -445,9 +445,13 @@ s^2_n= \dfrac{n-2}{n-1}s^2_{n-1}+\dfrac{(x_n-\bar{x}_{n-1})^2}{n}
 ```math
 \bar{x}_n= \dfrac{n-1}{n}\bar{x}_{n-1}+\dfrac{x_n}{n}
 ```
-Based on the above formula, the variance must always be computed starting from the second element of the sequence, and must be updated before the mean, as it used the mean of the previous passage.
+Based on the above formula, the variance must always be computed starting from the second element of the sequence, and must be updated before the mean, as it uses the mean computed in the previous step.
 
 After the final process, the cycles starts over again from the last generated sample.
+
+FINALIZE THE SIMULATION
+----
+
 Once all the trajectories have been generated. The script loops over the processors and averages the results. 
 
 	ttcf.finalise_output(irank, comm)
