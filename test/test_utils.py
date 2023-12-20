@@ -13,7 +13,8 @@ class TestUpdateFunctions(unittest.TestCase):
         result = utils.update_var(partial, mean, var, Count)
 
         # Calculate the expected result manually
-        expected_result = ((Count - 2) / float(Count - 1)) * var + (partial - mean) ** 2 / float(Count)
+        newmean=((Count-1)*mean + partial)/float(Count)
+        expected_result = ((Count-2)*var + (partial-mean)*(partial-newmean))/float(Count-1)
         
         self.assertEqual(result, expected_result)
 
