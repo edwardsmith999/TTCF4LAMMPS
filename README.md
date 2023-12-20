@@ -440,10 +440,10 @@ And the average over the four mappings is then integrated once the loop over the
 	 
 After the integration has been performed, the results is used to update the total mean and variance. The two quantities can be update using the one-passage Welford algorithm.
 ```math
-s^2_n= \dfrac{(n-2)s^2_{n-1}+(x_n-\bar{x}_{n-1})*(x_n-\bar{x}_{n})}{n-1}
+s^2_n= \dfrac{(n-2)s^2_{n-1}+(x_n-\bar{x}_{n-1})(x_n-\bar{x}_{n})}{n-1}
 ```
 ```math
-\bar{x}_n= \dfrac{n-1}{n}\bar{x}_{n-1}+\dfrac{x_n}{n}
+\bar{x}_n= \dfrac{(n-1)\bar{x}_{n-1}+x_n}{n}
 ```
 Based on the above formula, the variance must always be computed starting from the second element of the sequence.
 
