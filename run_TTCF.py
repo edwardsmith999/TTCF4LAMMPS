@@ -91,8 +91,7 @@ for Nd in range(Ndaughters):
 
     #Run mother starting from previous sample to generate the next sample
     utils.load_state(lmp, state)
-    utils.run_mother_trajectory(lmp,Nsteps_Thermalization,Thermo_damp)
-
+    utils.run_mother_trajectory(lmp,Nsteps_Decorrelation,Thermo_damp)
     state = utils.save_state(lmp, "snapshot")
 
     #Branch off daughters for each mapping
