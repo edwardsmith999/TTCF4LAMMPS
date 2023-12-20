@@ -1,5 +1,4 @@
 import unittest
-from mpi4py import MPI
 import numpy as np
 
 from TTCF import utils
@@ -47,36 +46,6 @@ class TestTTCFIntegration(unittest.TestCase):
         # Updated expected result to match the calculated result more precisely
         expected_result = np.array([0.  , 0.04, 0.08, 0.14])
         np.testing.assert_allclose(result, expected_result, rtol=1e-5)
-
-#class TestSumOverMPI(unittest.TestCase):
-#    def test_sum_over_MPI(self):
-#        comm = MPI.COMM_WORLD
-#        size = comm.Get_size()
-#        irank = comm.Get_rank()
-#        root = 0
-
-#        # Example data
-#        data = np.array([1.0, 2.0, 3.0])
-
-#        # Divide the data among processes
-#        local_data = np.array_split(data, size)[irank]
-
-#        # Call the function
-#        result = utils.sum_over_MPI(local_data, irank, comm, root)
-
-#        # Gather the results on the root process
-#        results = comm.gather(result, root=root)
-
-#        if irank == root:
-#            # Concatenate the results from all processes
-#            combined_result = np.concatenate(results)
-#            expected_result = np.array([3.0, 6.0, 9.0])
-
-#            # Check if the combined result is equal to the expected result
-#            self.assertTrue(np.array_equal(combined_result, expected_result))
-#        else:
-#            # Non-root processes should have a None result
-#            self.assertIsNone(result)
 
 if __name__ == '__main__':
     unittest.main()
