@@ -91,7 +91,7 @@ for Nd in range(Ndaughters):
 
     print("Proc", irank+1, " with daughter =", Nd+1, " of ", Ndaughters,  flush=True)
 
-    #Run daughter from initial state to decorrelate from mother
+    #Run mother starting from previous sample to generate the next sample
     utils.load_state(lmp, state)
     lmp.command("fix NVT_sampling all nvt temp ${T} ${T} " +  str(Thermo_damp) + " tchain 1")
     lmp.command("run " + str(Nsteps_Decorrelation))
