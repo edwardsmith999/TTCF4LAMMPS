@@ -152,7 +152,7 @@ The coordinates can then be loaded via the following sets of commands
 		set             atom * vz v_vz
   
 Where the command change_box is needed only if the SLLOD dynamics is employed. The otuput of the fix store/state (f_snapshot) is assigned to the declared variables, which then overwrite the existing positions and velocities.
-Note that no info about the thermostat can be saved by the store/state command. Should the thermostat be relevant for the simulation, the save and load operations must be replaced by 
+Note that no info about the thermostat can be saved by the store/state command. Should the thermostat be relevant for the simulation, the operations must be replaced by 
 
 	########### Save state ###########
 
@@ -163,9 +163,9 @@ Note that no info about the thermostat can be saved by the store/state command. 
 		read_restart snapshot.rst
 
 And each fix nvt command should have the same ID throughout the whole run, bot for the mother and the daughter trajectory.
-The second point which needs clarification is the mapping procedure works is the following way: in order to keep a general algorithm, each single dimension can be independenlty mirrored. There are 6 total dimensions, namely x,y,z,vx,v,z. Thus, a mapping can be identified by a set of six digits, each of which can be either 0 (no reflection) or 1 (reflection). For instance, the sequence 101100 identifies the following mapping
+The second point which needs clarification is the mapping procedure. It  works is the following way: in order to keep a general algorithm, each single dimension can be independenlty mirrored. There are 6 total dimensions, namely x,v_x,y,v_y,z,v_z. Thus, a mapping can be identified by a set of six digits, each of which can be either 0 (no reflection) or 1 (reflection). For instance, the sequence 101100 identifies the following mapping
 
-	(101100) = (-x , y , -z , -vx , vy , vz )
+	(101100) = (-x , vx , -y , -vy , z , vz )
  
 There are a total of 2^6 independent mappings, hence the string corresponding to the selected mapping can be translated into a number from 0 to 63 by simply converting the string from a binary to a decimal number. The mappings selected here are 
 
