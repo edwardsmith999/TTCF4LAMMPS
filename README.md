@@ -98,10 +98,8 @@ From each initial state, three further mirrored states are generated (two in the
 
 Hence, for each sampled state, four nonequilibrium runs are generated. 
 
-Software Implementation
---------------
 
-A compact TTCF implementation can be written within a single LAMMPS input file using the following pseudocode structure
+A compact TTCF implementation can be written within a single LAMMPS input file using the following psudocode structure
 
 	System setup
 
@@ -130,92 +128,12 @@ A compact TTCF implementation can be written within a single LAMMPS input file u
 	end Loop	
 
 
-Each single block is translated into LAMMPS commands as follows:
-
-
-	########### System setup ###########
-
-	#Declaration of all variables and simulation parameters (Type 1)
-		
-		variable rho equal 0.8442                               #Density
-		variable Npart equal 256                                #Number of particles
-		variable T equal 0.722                                  #Temperature 
-		variable L equal (${Npart}/${rho})^(1.0/3)              #system size 
-		variable rc equal 2^(1/6)                               #Interaction radius for Lennard-Jones (effectively WCA potential)
-		variable k_B equal 1                                    #Boltzmann Constant
-  
-		variable srate equal 1                                  #Shear rate applied   
-
-	########################################################################################################
-        #Declaration of all variables and simulation parameters (Type 2). 
-	#These variables will be implemented in Python, and hence they are not declared in the LAMMPS script. 
-  	#They are shown here for clarity
-
-		Ndaughters=1000                                         #Total number of initial states generated
-
-		Maps=[0,21,48,37]					#Selected mapping
-		Nmappings=4						#Total number of mappings
-
-		Nsteps_Thermalization = 10000                          	#Lenght of thermalization run
-		Nsteps_Decorrelation  = 10000				#Lenght of decorrelation runs
-		Nsteps_Daughter       = 1000                            #Lenght of nonequilibrium runs
-
-		Delay=10    						#Frequency (in timesteps) for output generation along the nonequilibrium runs
-		Nsteps_eff=int(Nsteps_Daughter/Delay)+1			#Effective number of timesteps of the output
-  
-		Nbins=100 						#Number of bins for profile output
-		Bin_Width=1.0/float(Nbins)				#Bin width for profile output 
-
-		dt = 0.0025                                             #Bin width for profile output
-
-  		rand_seed = 12345    					#Seed for random initial velocity generation
-
-	########################################################################################################
-        #End of parameter declaration
-                
-
-
- 		units		    lj
-		dimension	    3
-		atom_style      full 
-		neigh_modify	delay 0 every 1
-		boundary		p p p
-	
-		lattice         fcc ${rho}
-		region          simbox prism 0 ${L} 0 ${L} 0 ${L} 0 0 0 units box
-		create_box      1 simbox 
-		create_atoms    1 region simbox
-
-		group           fluid region simbox
-
-		mass            * 1.0
-		pair_style      lj/cut ${rc}
-
-		pair_coeff       1 1 1.0 1.0
-
-		velocity        fluid create $T ${rand_seed}
-  
-        	timestep ${dt}
-		variable Thermo_damp equal 10*${dt}
-		
-
-
-
-
-The declared variables are either used by LAMMPS only (type 1) and directly declared within the input file, or managed by the python interface (type 2) and hence not declared in the input file, and shown here just for clarity purpose. The remaining set of commands are standard creation of simulation box, atom positions and velocities, and interatomic potential.
-
-	########### Run equilibrium thermalization ###########
-
-		fix NVT_thermalization all nvt temp ${T} ${T} ${Thermo_damp} tchain 1
-		run ${Nsteps_Thermalization}
-		unfix NVT_thermalization
-  
-	########### Save state ###########
+The implementation can be found in the file LAMMPS_script.in. The file is equivalent to the python implemenetation which will be described later and can be directly used for MD simulations. However, it generates two output files for each daughter trajectory, making it impractical for realistic calculations. It is here used just as a reference to better understand the rationale behing the python interface. The entire TTCF calculation is here performed via a single run. The systems repeatedly switches between equilibrium (mother) and nonequilibrium (daughter) trajectory as shown in the abode pseudocode. Each block of commands is quite straightforward. However, the generation and loading the generation of the sample from the mother trajectory, and loading it need to be clarified.
+In order ot avoid writing/reading from files, the instantaneous state of the system is stored via the following command, which temporarily save the variables specified (positions and momenta) in the structure called snapshot
 
  		fix snapshot all store/state 0 x y z vx vy vz
 
-The command fix store/state allow to save the state of the system without handling any file. The state can be restored by the set of commands
-	########### Load State ###########
+The coordinates can then be loaded via the following sets of commands
  
 		change_box all  xy final 0
 
@@ -233,8 +151,8 @@ The command fix store/state allow to save the state of the system without handli
 		set             atom * vy v_vy 
 		set             atom * vz v_vz
   
-Where the command change_box is needed only of the SLLOD dynamics is employed. The variable commands regain the output of the fix store/state, and later assign it to the position of velocity of each atom.
-Note that no info about the thermostat is saved by the store/state command. Should the thermostat be relevant for the simulation, the save and load state must be replaced by 
+Where the command change_box is needed only if the SLLOD dynamics is employed. The otuput of the fix store/state (f_snapshot) is assigned to the declared variables, which then overwrite the existing positions and velocities.
+Note that no info about the thermostat can be saved by the store/state command. Should the thermostat be relevant for the simulation, the operations must be replaced by 
 
 	########### Save state ###########
 
@@ -244,17 +162,17 @@ Note that no info about the thermostat is saved by the store/state command. Shou
  
 		read_restart snapshot.rst
 
-And each fix nvt command should have the same ID throughout the whole run.
-The mapping procedure work is the following way: in order to keep a general algorithm, each single dimension can be independently mirrored. There are 6 total dimensions, namely x,vx,y,vy,z,vz. Thus, a mapping can be identified by a set of six digits, each of which can be either 0 (no reflection) or 1 (reflection). For instance, the sequence 101100 identifies the following mapping
+And each fix nvt command should have the same ID throughout the whole run, bot for the mother and the daughter trajectory.
+The second point which needs clarification is the mapping procedure. It  works is the following way: in order to keep a general algorithm, each single dimension can be independenlty mirrored. There are 6 total dimensions, namely x,vx,y,vy,z,vz. Thus, a mapping can be identified by a set of six digits, each of which can be either 0 (no reflection) or 1 (reflection). For instance, the sequence 101100 identifies the following mapping
 
-		(101100) = (-x , vx, -y , -vy , z , vz )
+	(101100) = (-x , vx , -y , -vy , z , vz )
  
-There are a total of 2^6 independent mappings, hence the string corresponding to the selected mapping can be translated into a number from 0 to 63 by simply converting the string from a binary to a decimal number. The mappings selected here are 
+There are a total of 2^6 independent mappings and the string corresponding to the selected mapping can be translated into a number from 0 to 63 by simply converting the string from a binary to a decimal number. The mappings selected here are 
 
-		( x ,  vx, y ,  vy , z ,  vz ) = 000000 = 0  (original state)
- 		( x , -vx, y , -vy , z , -vz ) = 010101 = 21  (time reversal)
-  		(-x , -vx, y ,  vy , z ,  vz ) = 110000 = 48 (x-reflection)
-  		(-x ,  vx, y , -vy , z , -vz ) = 100101 = 37 (time reversal + x-reflection)
+	(  x ,  vx , y ,  vy , z ,  vz ) = 000000 = 0  (original state)
+ 	(  x , -vx , y , -vy , z , -vz ) = 010101 = 21  (time reversal)
+  	( -x , -vx , y ,  vy , z ,  vz ) = 110000 = 48 (x-reflection)
+  	( -x ,  vx , y , -vy , z , -vz ) = 100101 = 37 (time reversal + x-reflection)
 
 and the mapping is applied by the following commands
 
@@ -283,74 +201,21 @@ and the mapping is applied by the following commands
 		set             atom * vy v_vy 
 		set             atom * vz v_vz
 
-where the first block of commands translates back a decimal number into its binary representation and selects each single digit, the second block calculates the corresponding reflected dimension (1 inverts sign, 0 leaves unchanged), and the third block updates the positions and momenta.
-The last two blocks are the equilibrium sampling process and the daughter setup. 
+where the first block of commands traslates back a decimal number into its binary representation and selects each separate digit, the second block calculates the corresponding reflected dcoordinate (1 inverts sign, 0 leaves unchanged), and the third block updates the positions and momenta.
 
-	########### Run equilibrium sampling ###########
-
- 		include ./load_state.lmp
-    		fix NVT_sampling all nvt temp ${T} ${T} ${Thermo_damp} tchain 1
-    		run ${Nsteps_Decorrelation}
-		unfix NVT_sampling
-    		fix snapshot all store/state 0 x y z vx vy vz
-
-
-	########### Run nonequilibrium daughter trajectory ###########
- 
- 		# Apply the external field
-		variable        vx_shear atom vx+${srate}*y     
-		set             atom * vx v_vx_shear            
-	
-
-		# Set dynamics for the daughter trajectory	
-	
-		fix     box_deform all deform 1 xy erate ${srate} remap v units box
-		fix     NVT_SLLOD all nvt/sllod temp ${T} ${T} ${Thermo_damp}
-
-
-		# Set quantities to compute
-
-		compute		shear_T all temp/deform     
-		compute		shear_P all pressure shear_T
-
-		variable Omega equal c_shear_P[4]*(xhi-xlo)*(yhi-ylo)*(zhi-zlo)*${srate}/(${k_B}*${T})
-
-		compute profile_layers all chunk/atom bin/1d y lower ${Bin_Width} units reduced
-
-		fix Profile_variables all ave/chunk 1 1 ${Delay} profile_layers vx ave one
-
-		fix Global_variables all ave/time 1 1 ${Delay} c_shear_P[4] v_Omega ave one
-
-	        # Run trajectory
-	 
-		run   ${Child_simtime}
-
-		# Discard all nonequilibrium dynamics
-  
-		unfix   	Profile_variables 
-		unfix   	Global_variables
-
-		unfix 		box_deform
-		unfix 		NVT_SLLOD
-  
-		uncompute 	profile_layers
-		uncompute       shear_T
-		uncompute	shear_P
-
-
-At the end of each block (thermalization, sampling, nonequilibrium run), each fix and compute is erased. The state generated from the equilibrium sampling trajectory is used as starting point for each daughter, as well as imported again for the last time when the sampling process is restored, and the next initial state is produced. 
-In this examples both profile (associated to a specific point of the system) and global (associated to the entire system) variables are computed, in order to provide an example for both outputs. The profile variable is the velocity, whereas the global variables are the shear pressure and the dissipation function, respectively. In this script, the dissipation function must always be the last variable listed on the fin ave/time command. For the SLLOD equation, we have
+The proposed examples produces both a profile quantity (associated to a specific point of the system) and global quantity (associated to the enire system), in order to provide a general scheme for TTCF caluclation. The profile variable is the velocity, whereas the global variables are the shear pressure and the dissipation function, respectively. In this script, the dissipation function must always be the last variable listed on the fin ave/time command. For the SLLOD equation, we have
 ```math
 \Omega(t)=\dfrac{Vp_{xy}(t)}{k_B T} 
 ```
 Note that the dissipation function at t=0 can be computed either from the mother or from the daughter trajectory. However, the LAMMPS implementation of the SLLOD algorithm contains various errors which result in a mismatch between the two calculations. However, the errors have minor effects of the final outcome. For simplicity, in the dissipation function is here monitored over the entire daughter trajectory. 
 The same setup can be used with different systems, provided the various parameters, the dynamics, and the dissipation function are properly modified.
-The Python interface described here aims at managing the entire LAMMPS simulation without the need to produce one or more output files for each nonequilibrium run. Since TTCF calculation requires thousands, or up to million nonequilibrium runs, the file management can become cumbersome and substantially decrease the performance in HPC clusters.
-The script uses the python LAMMPS interface (https://docs.lammps.org/Python_head.html), which allows to manage the LAMMPS run from python directly. As such, the output produced by the fix ave/time and fix ave/chuck commands are not written on file, but taken as input by Python.
+The Python interface described here aims at managing the entire LAMMPS simulation without the need to any output file for each nonequilibrium run. Since TTCF calculation requires thousands, or up to million nonequilibrium runs, the file management can become cumbersome and substantially decrease the performaces in HPC clusters.
+The script uses the python LAMMPS interface (https://docs.lammps.org/Python_head.html), which allows to manage the LAMMPS run from python directly. As such, the otuput produced by the fix ave/time and fix ave/chuck commands are not written on file, but taken as input by Python.
 The Python script run_TTCF.py is structured as follows:
 
 SPLIT THE SIMULATION INTO N SINGLE-CORE RUNS (N # OF CORES SELECTED) 
 ------
+Each core is assigned to a LAMMPS run. of N cores, N independent mother trajectories are generated, as well as the releted daughter trajectories. Each run is characterized by a different randon seed, which is used to randomize the inital momenta (see below).
 
 	comm = MPI.COMM_WORLD
 	irank = comm.Get_rank()
@@ -362,39 +227,47 @@ DECLARATION OF VARIABLES AND STRUCTURES
 ------
 
 Here all the parameters needed by the Python scripts are declared. 
-These are the Type 2 parameters declared in the lammps setup. 
+These are the parameters requied by Python. The rest of the info about the simulation (temperature, density, etc) are stored in the LAMMPS input file which will be uploaded into a python object (see below).
 If needed, these parameters will be passed to LAMMPS via proper functions.
 
    
 
-	Tot_Daughters= 30000
-	Ndaughters=math.ceil(Tot_Daughters/nprocs) # number of daughters for each processor
-
-	Maps=[0,7,36,35]
-	Nmappings=len(Maps)
-
+	Tot_Daughters         = 100
+	Maps                  = [0,21,48,37]
 	Nsteps_Thermalization = 10000
 	Nsteps_Decorrelation  = 10000
 	Nsteps_Daughter       = 1000
+	Delay                 = 10
+	Nbins                 = 100
+	dt                    = 0.0025
 
-	Delay=10
-	Nsteps_eff=int(Nsteps_Daughter/Delay)+1
 
-	Nbins=100
+	Nmappings=len(Maps)
+	Ndaughters=int(np.ceil(Tot_Daughters/nprocs))
+	Nsteps=int(Nsteps_Daughter/Delay)+1
 	Bin_Width=1.0/float(Nbins)
-
-	dt = 0.0025
-
-
-In this section , the user can select the quantities to generate as output.
-IMPORTANT: THE RELATED COMPUTES MUST BE DECLARED IN THE DAUGHTER SETION AND MUST MATCH THE NAMES GIVEN HERE
+	Thermo_damp = 10*dt
 
 
+The dynamics of the nonequilibrium daughter trajectory is then declared. The user should translate each LAMMPS command into a string which is then appendend to the block. The order identical to that of a LAMMPS script. The blocks are respectively: definition of the dynamics (apply ext. field, set dynamics), definition and caluclation of profile variables, definition and caluclation of global variables (including the dissipation function, which must be the last output quantity listed in the related command)
+
+	setlist = []
+
+	setlist.append("variable vx_shear atom vx+${srate}*y")
+	setlist.append("set atom * vx v_vx_shear")
+	setlist.append("fix box_deform all deform 1 xy erate ${srate} remap v units box")
+	setlist.append("fix NVT_SLLOD all nvt/sllod temp ${T} ${T} " + str(Thermo_damp))
+ 
 	profile_variables = ['vx']
-	computestr = "compute profile_layers all chunk/atom bin/1d y lower "+str(Bin_Width)+" units reduced"
-	profilestr = "fix Profile_variables all ave/chunk 1 1 {} profile_layers {} ave one".format(Delay, ' '.join(profile_variables))
+	setlist.append("compute profile_layers all chunk/atom bin/1d y lower "+str(Bin_Width)+" units reduced")
+	setlist.append("fix Profile_variables all ave/chunk 1 1 {} profile_layers {} ave one".format(Delay, ' '.join(profile_variables)))
+	
+	setlist.append("compute        shear_T all temp/deform")
+	setlist.append("compute        shear_P all pressure shear_T ")
+	setlist.append("variable       Omega equal -c_shear_P[4]*(xhi-xlo)*(yhi-ylo)*(zhi-zlo)*${srate}/(${k_B}*${T})")
 	global_variables = ['c_shear_P[4]', 'v_Omega']
-	globalstr = "fix Global_variables all ave/time 1 1 {} {} ave one".format(Delay, ' '.join(global_variables))
+	setlist.append("fix Global_variables all ave/time 1 1 {} {} ave one".format(Delay, ' '.join(global_variables)))
+
 
 	
 CREATION OF LAMMPS OBJECT
@@ -402,223 +275,185 @@ CREATION OF LAMMPS OBJECT
 
 
 This operation associates a LAMMPS input file to a LAMMPS object.
-The file associated contains only the command found in the block "System setup" previously described
+The file "System setup.in" contains only the declaration of the remaining parameters and the initialization of the system. The command line arguments are '-sc', 'none' (no video output),
+'-log', 'none' (no log file), '-var', 'rand_seed' , seed_v (the random seed to initialize the velocities, different for each processor). The last command sets the timestep for the integration of the equations of motion. The parameter is declared in the script, and appended to the LAMMPS object via lmp.command()
       
 	args = ['-sc', 'none','-log', 'none','-var', 'rand_seed' , seed_v]
 	lmp = lammps(comm=MPI.COMM_SELF, cmdargs=args)
 	L = PyLammps(ptr=lmp)
 	nlmp = lmp.numpy
-	lmp.file("System_setup.in")
-
-
+	lmp.file("system_setup.in")
+	lmp.command("timestep " + str(dt))
+ 	
 RUN THERMALIZATION
 ------
 
-This block appends to the existing LAMMPS input file the set of commands listed in the "Run equilibrium thermalization" block. 
-The operation is performed using lmp.command("......") which enables one to attach to the LAMMPS object lmp any arbitrary LAMMPS command, including variable declaration (passing Type 2 parameters to LAMMPS) and run.
+This block appends to the existing LAMMPS object (loaded from system_setup.in) the set of commands listed in the function, which represent the equilibrium dynamics (mother trajectory) of the system. Since multiple runs are perfrmed, ant the end of each run all the fixes and computes must be discarded. At the end of the equilibrium run, the state of the system is saved 
 
-	lmp.command("timestep " + str(dt))
-	lmp.command("variable Thermo_damp equal " +  str(10*dt))
-	lmp.command(" fix NVT_thermalization all nvt temp ${T} ${T} ${Thermo_damp} tchain 1")
-	lmp.command("run " + str(Nsteps_Thermalization))
-	lmp.command("unfix NVT_thermalization")
+
+	run_mother_trajectory(lmp,Nsteps_Thermalization,Thermo_damp)
+
+	def  run_mother_trajectory(lmp,Nsteps_Decorrelation,Thermo_damp):
+
+		lmp.command("fix NVT_equilibrium all nvt temp ${T} ${T} " +  str(Thermo_damp) + " tchain 1")
+    		lmp.command("run " + str(Nsteps_Decorrelation))
+   		lmp.command("unfix NVT_equilibrium")
+
+   		return None
+     
+At the end of the equilibrium run, the state of the system is saved via the following
+
+	state = save_state(lmp, "snapshot")
+
+	def save_state(lmp, statename, save_variables=["x", "y", "z", "vx", "vy", "vz"]):
+
+    		state = {}
+    		state['name'] = statename
+    		state['save_variables'] = save_variables
+    		cmdstr = "fix " + statename + " all store/state 0 {}".format(' '.join(save_variables))
+    		lmp.command(cmdstr)
+
+    		return state
 
 LOOP OVER THE DAUGHTER TRAJECTORIES
 ------
 
-This block appends to the existing LAMMPS input file the set of commands listed in the "Run equilibrium thermalization" block.
-Before the decorrelation, the inital state is loaded, and after the decorrelation, a new initial state is produced. As the load state is called several times, the set of operations are stored in the separate file "load_state.lmp", and included in the script with the command include ./load_state.lmp.
-In the last block, the structures where the ouptut will be saved are initialized to 0
-
-	for Nd in range(Ndaughters):
-
-		lmp.command("include ./load_state.lmp")
-		lmp.command("fix NVT_sampling all nvt temp ${T} ${T} ${Thermo_damp} tchain 1")
-		lmp.command("run " + str(Nsteps_Decorrelation))
-		lmp.command("unfix NVT_sampling")
-		lmp.command("fix snapshot all store/state 0 x y z vx vy vz")
+The script loop over the number of daughter trajectories (excluding the mappings). At each step, the last saved state of the system is loaded, 
 
 
-   		DAV_profile_partial[:,:,:] = 0
-    		DAV_global_partial[:,:]    = 0
-        
-    		integrand_profile_partial[:,:,:] = 0
-    		integrand_global_partial[:,:]    = 0
+	load_state(lmp, state)
+	def load_state(lmp, state):
+    
+    		cmdstr = "change_box all  xy final 0\n"
+    		for i, s in enumerate(state['save_variables']):
+       		varname = "p"+s 
+       	 	cmdstr += "variable " + varname + " atom f_"+state['name']+"["+str(i+1)+"]\n"
+        	cmdstr += "set             atom * " + s + " v_"+varname+"\n"
+
+    		for line in cmdstr.split("\n"):
+        		lmp.command(line)
+    		return None
+
+and the equilibrium run is carried on, until the system is fully decorrelated from the last saved state, after which a new state owerwrite the exisiting saved one.
+
+	run_mother_trajectory(lmp,Nsteps_Decorrelation,Thermo_damp)
+   	state = save_state(lmp, "snapshot")
 
 LOOP OVER THE MAPPINGS
 ------
 
-The first block of command set the proper mapping (selected by PYthon form the Maps list provided), load the initial state generated, apply the mapping (stored in the separate file "mapping.lmp"), and set the daughter dynamics (file "set_daughter.lmp"), that is, applying the external field and define the SLLOD dynamics
+Each step repesent a single mapped daughter trajectory. The last generated sample is first loaded, and then modified accordingly to the current mapping. The conversion from deciaml number to six-digits binary string is performed direcly by Python, unlike in the LAMMPS script example.
 
-      for Nm in range(Nmappings):
-              
-        	lmp.command("variable map equal " + str(Maps[Nm]))
-        	lmp.command("include ./load_state.lmp")
-        	lmp.command("include ./mappings.lmp")
-        	lmp.command("include ./set_daughter.lmp")
+	load_state(lmp, state)
+ 	apply_mapping(lmp, Maps[Nm])
+
+  	def apply_mapping(lmp, map_index):
+
+    		map_list=["x","y","z"]
+    		N=len(map_list)
+    
+    		ind=map_index
+     
+    		cmdstr=""
+    		for i in range(N):
+
+       		mp = ind % 2
+       		ind = np.floor(ind/2)
+    
+        	cmdstr += "variable map atom  v"+map_list[N-1-i]+"-(2*v"+map_list[N-1-i]+"*"+str(mp)+")\n"
+        	cmdstr += "set atom * v"+map_list[N-1-i]+" v_map\n"
+
+
+       	 	mp=ind % 2
+        	ind = np.floor(ind/2)
+
+        	cmdstr += "variable map atom  "+map_list[N-1-i]+"+(("+map_list[N-1-i]+"hi-2*"+map_list[N-1-i]+")*"+str(mp)+")\n"
+        	cmdstr += "set atom * "+map_list[N-1-i]+" v_map\n"
+
+    		for line in cmdstr.split("\n"):
+        		lmp.command(line)
+
+    		return None
 	 
-The secon block defines the various computes and outputs. REMINDER: THE COMMANDS MUST MATCH THE ONES DECLARED AT THE BEGINNING OF THE PYTHON SCRIPT.
-
-       	 	lmp.command(computestr)
-        	lmp.command(profilestr)
-        	lmp.command("compute	shear_T all temp/deform")     
-        	lmp.command("compute    shear_P all pressure shear_T")
-       	 	lmp.command("variable   Omega equal -c_shear_P[4]*(xhi-xlo)*(yhi-ylo)*(zhi-zlo)*${srate}/(${k_B}*${T})")
-       	 	lmp.command(globalstr)
-	  
-The command "run 0 pre yes post yes" is necessary only for the SLLOD dynamics. It is normally redundant.
-
-        	lmp.command("run 0 pre yes post yes")
-	 
-The next two commands take the output generated by the fix ave/time and fix ave/chunk and store it in the proper structure. The commands are nested in speficic function for clarity.
-The Python routine to perfom this operation is "nlmp.extract_fix". After the first output, the dissipation function at t=0 is saved. REMINDER: THE DISSIPATION FUNCTION MUST ALWAYS BE THE LAST VARIABLE LISTED IN THE FIX AVE/TIME   
-
-          	data_profile[0, :, :]= get_profiledata(profile_variables, Nbins)
-        	data_global[0, :] = get_globaldata(global_variables)
-
-  		omega = data_global[0, -1] 
-
-The script now loops over the nonequilibrium trajectory timesteps. The ouptu is generated every N (Delay varaible) timesteps. Hence, LAMMPS runs for N steps, the output ic caluclated and stored, then the run is resumed for futher N steps. The run option "pre yes post no" can subtaintially speed up the simulation. They shoud however be used with caution, as the output might be corrupted if both options are set to "no"
-
-    		for t in range(1 , Nsteps_eff , 1):
-      
-        		lmp.command("run " + str(Delay) + " pre yes post no")
-			data_profile[t, :, :]= get_profiledata(profile_variables, Nbins)
-        		data_global[t, :] = get_globaldata(global_variables)
 
 
-The computes and fixes related to the nonequilibrium trajectory are deleted
+The set of commands related to the daughter trajectory and declared in the first section of the script are then loaded and discarded at the end of the daughter run
 
-        	lmp.command("unfix Profile_variables")
-        	lmp.command("unfix Global_variables")
-        	lmp.command("uncompute profile_layers")
-       	 	lmp.command("uncompute shear_T")
-        	lmp.command("uncompute shear_P")
-       
-        	lmp.command("include ./unset_daughter.lmp")
+	set_list(lmp, setlist)
+ 	unset_list(lmp, setlist)
 
-The output is summed to the previous mappings, and the TTCF integrand function updated.
+During the daughter run, the output quantities are repeatedly accessed and stored via the PyLAMMPS built-in function "nlmp.extract_fix" (called here within the Python function "get_fix_data"). The function must be called the precise timestep the output is produced. A loop cycles over the lenght of the simulation ot extract the output with the specified frequency. The total run is hence fragmented in a series of short run between outputs. The option " pre yes post no" can significanlty improve the performaces, but should be carefully tested, as it can impact the produced output. The first command "run 0" is here required to trigger the box deformation induced by SLLOD dynamics. It is likely an unintended effect, and can be removed for different systems, or different LAMMPS versions.
 
-        	DAV_profile_partial  += data_profile[:,:,:]
-        	DAV_global_partial   += data_global[:,:]
+	lmp.command("run 0 pre yes post yes")
+	data_profile[0, :, :]= get_fix_data(lmp, "Profile_variables", profile_variables, Nbins)
+        data_global[0, :] = get_fix_data(lmp, "Global_variables", global_variables)
+        omega = data_global[0, -1] 
+
+    
+        for t in range(1, Nsteps):
+            lmp.command("run " + str(Delay) + " pre yes post no")
+            data_profile[t, :, :]= get_fix_data(lmp, "Profile_variables", profile_variables, Nbins)
+            data_global[t, :] = get_fix_data(lmp, "Global_variables", global_variables)
+	    
+The last commands adds the produced output with the ones generated within the same initial state, 
+
+	ttcf.add_mappings(data_profile, data_global, omega)
+And the average over the four mappings is then integrated once the loop over the mappings has been performed. The phase average and the integration can be swapped since both are linear operators. The integration uses a second order Simpson method. 
+
+	ttcf.integrate(dt*Delay)
+
+ 	def integrate(self, step):
+
+        	#Perform the integration
+        	self.TTCF_profile_partial = TTCF_integration(self.integrand_profile_partial, step)
+        	self.TTCF_global_partial  = TTCF_integration(self.integrand_global_partial, step)
+
+        	#Add the initial value (t=0) 
+        	self.TTCF_profile_partial += self.DAV_profile_partial[0,:,:]
+        	self.TTCF_global_partial  += self.DAV_global_partial[0,:]
+
+        	#Average over the mappings and update the Count (# of children trajectories generated excluding the mappings)
+        	self.DAV_profile_partial  /= self.Nmappings   
+        	self.DAV_global_partial   /= self.Nmappings 
+        	self.TTCF_profile_partial /= self.Nmappings   
+        	self.TTCF_global_partial  /= self.Nmappings 
+
+        	self.Count += 1
+
+        	if self.Count >1:
         
-        	integrand_profile_partial += data_profile[:,:,:]*omega
-        	integrand_global_partial  += data_global[:,:]*omega
+            		self.TTCF_profile_var= update_var(self.TTCF_profile_partial, self.TTCF_profile_mean, self.TTCF_profile_var, self.Count)      
+            		self.DAV_profile_var= update_var(self.DAV_profile_partial, self.DAV_profile_mean, self.DAV_profile_var, self.Count)
+            		self.TTCF_global_var= update_var(self.TTCF_global_partial, self.TTCF_global_mean, self.TTCF_global_var, self.Count)   
+            		self.DAV_global_var= update_var(self.DAV_global_partial, self.DAV_global_mean, self.DAV_global_var, self.Count)
+          
+        	self.TTCF_profile_mean= update_mean(self.TTCF_profile_partial, self.TTCF_profile_mean, self.Count)     
+        	self.DAV_profile_mean= update_mean(self.DAV_profile_partial, self.DAV_profile_mean, self.Count)
+        	self.TTCF_global_mean= update_mean(self.TTCF_global_partial, self.TTCF_global_mean, self.Count)
+        	self.DAV_global_mean= update_mean(self.DAV_global_partial, self.DAV_global_mean, self.Count)
 
-The integration of the correlation is performed. Since the numerical integration is a linear operation, the average can either be perfomred before or after the integration. For simplicity, here each single independent daughter (average over the 4 mappings) is integrated
-
-     	TTCF_profile_partial = TTCF_integration_profile(integrand_profile_partial, dt*Delay, Nsteps_eff , Nbins, avechunk_ncol )
-    	TTCF_global_partial  = TTCF_integration_global(integrand_global_partial , dt*Delay, Nsteps_eff , avetime_ncol )  
-    
-    
- The initial value is added
- 
-   	 TTCF_profile_partial += DAV_profile_partial[0,:,:]
-   	 TTCF_global_partial  += DAV_global_partial[0,:]
-
-And averages over the 4 mappings 
-
-   	 DAV_profile_partial  /= Nmappings   
-   	 DAV_global_partial   /= Nmappings 
-   	 TTCF_profile_partial /= Nmappings   
-   	 TTCF_global_partial  /= Nmappings 
-
-The result is then used to update mean and variance. The algorithm to compute mean and avariance is the Welford algorithm, and it is defined as follows
+        	self.DAV_profile_partial[:,:,:] = 0
+        	self.DAV_global_partial[:,:]    = 0
+            
+        	self.integrand_profile_partial[:,:,:] = 0
+        	self.integrand_global_partial[:,:]    = 0
+	 
+After the integration has been performed, the results is used to update the total mean and variance. The two quantities can be update using the one-passage Welford algorithm.
 ```math
 s^2_n= \dfrac{n-2}{n-1}s^2_{n-1}+\dfrac{(x_n-\bar{x}_{n-1})^2}{n}
 ```
 ```math
 \bar{x}_n= \dfrac{n-1}{n}\bar{x}_{n-1}+\dfrac{x_n}{n}
 ```
-Note that : (i) the variance must be computed starting from the second sample, and (ii) must be updated before updating the mean, since it uses the mean computed in the previous step
+Based on the above formula, the variance must always be computed starting from the second element of the sequence, and must be updated before the mean, as it uses the mean computed in the previous step.
 
-	Count += 1
-
-	if Count >1
-			TTCF_profile_var= update_var(TTCF_profile_partial, TTCF_profile_mean, TTCF_profile_var, Count)      
-			DAV_profile_var= update_var(DAV_profile_partial, DAV_profile_mean, DAV_profile_var, Count)
-			TTCF_global_var= update_var(TTCF_global_partial, TTCF_global_mean, TTCF_global_var, Count)   
-			DAV_global_var= update_var(DAV_global_partial, DAV_global_mean, DAV_global_var, Count)
-    	TTCF_profile_mean= update_mean(TTCF_profile_partial, TTCF_profile_mean, Count)     
-   	DAV_profile_mean= update_mean(DAV_profile_partial, DAV_profile_mean, Count)
-    	TTCF_global_mean= update_mean(TTCF_global_partial, TTCF_global_mean, Count)
-    	DAV_global_mean= update_mean(DAV_global_partial, DAV_global_mean, Count)
-
-
-
-
+After the final process, the cycles starts over again from the last generated sample.
 
 FINALIZE THE SIMULATION
 ----
-Here the releveant quantity is selected from the profile quantities (by default the fix ave/chuck command adds two futher info). If more than one variable is computed, e.g three, then the last three variables must be selected
 
-	TTCF_profile_mean = TTCF_profile_mean[:,:,-1]
-	DAV_profile_mean  = DAV_profile_mean[:,:,-1]
+Once all the trajectories have been generated. The script loops over the processors and averages the results. 
 
-	TTCF_profile_var = TTCF_profile_var[:,:,-1]
-	DAV_profile_var  = DAV_profile_var[:,:,-1]
-
-The variance of the mean is computed (computed variance of the sample over the number of samples)
-
-	TTCF_global_var/= float(Count)
-	DAV_global_var /= float(Count)
-	TTCF_profile_var /= float(Count)
-	DAV_profile_var  /= float(Count)
-
-Summed across the independent parallel runs
-
-	TTCF_profile_mean_total = sum_over_MPI(TTCF_profile_mean, irank)
-	DAV_profile_mean_total = sum_over_MPI(DAV_profile_mean, irank)
-	TTCF_profile_var_total = sum_over_MPI(TTCF_profile_var, irank)
-	DAV_profile_var_total = sum_over_MPI(DAV_profile_var, irank)
-
-	TTCF_global_mean_total = sum_over_MPI(TTCF_global_mean, irank)
-	DAV_global_mean_total = sum_over_MPI(DAV_global_mean, irank)
-	TTCF_global_var_total = sum_over_MPI(TTCF_global_var, irank)
-	DAV_global_var_total = sum_over_MPI(DAV_global_var, irank)
-
-And normalized again over the number of runs. Finally, the standard error is computed as the square root of the variance of the mean.
-	
-	if irank == root:
-    		TTCF_profile_mean_total = TTCF_profile_mean_total/float(nprocs)
-    		DAV_profile_mean_total  = DAV_profile_mean_total/float(nprocs)
-    		TTCF_profile_var_total  = TTCF_profile_var_total/float(nprocs)
-    		DAV_profile_var_total   = DAV_profile_var_total/float(nprocs)
-    
-    		TTCF_global_mean_total = TTCF_global_mean_total/float(nprocs)
-    		DAV_global_mean_total  = DAV_global_mean_total/float(nprocs)
-    		TTCF_global_var_total  = TTCF_global_var_total/float(nprocs)
-    		DAV_global_var_total   = DAV_global_var_total/float(nprocs)
-    
-
-    		TTCF_profile_SE_total  = np.sqrt(TTCF_profile_var_total)
-    		DAV_profile_SE_total   = np.sqrt(DAV_profile_var_total)
-    		TTCF_global_SE_total   = np.sqrt(TTCF_global_var_total)
-    		DAV_global_SE_total    = np.sqrt(DAV_global_var_total)
-
-The script plots the output using matplotlib, which should look as follows (note that due to random seed, the exact peaks might be different but trends should be the same),
-
-![alt text](https://github.com/edwardsmith999/TTCF/blob/master/figures/TTCF_vs_DAV_SLLOD.png)
-
-The variables are then saved on file
-
-    np.savetxt('profile_DAV.txt', DAV_profile_mean_total)
-    np.savetxt('profile_TTCF.txt', TTCF_profile_mean_total)
-    
-    np.savetxt('profile_DAV_SE.txt', DAV_profile_SE_total)
-    np.savetxt('profile_TTCF_SE.txt', TTCF_profile_SE_total)
-    
-    np.savetxt('global_DAV.txt', DAV_global_mean_total)
-    np.savetxt('global_TTCF.txt', TTCF_global_mean_total)
-    
-    np.savetxt('global_DAV_SE.txt', DAV_global_SE_total)
-    np.savetxt('global_TTCF_SE.txt', TTCF_global_SE_total)
-
-
-
-
-
-
-
-
-
+	ttcf.finalise_output(irank, comm)
+ The final output is the mean of the desired quantities and their standard error (SE).
+ 

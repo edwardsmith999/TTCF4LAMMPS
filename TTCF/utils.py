@@ -21,9 +21,16 @@ def sum_over_MPI(A, irank, comm, root=0):
 def update_var(partial, mean, var, Count):
     return (Count-2)/float(Count-1)*var + (partial - mean)**2/float(Count)
 
-#Running tally of mean
 def update_mean(partial, mean, Count):
     return ((Count-1)*mean + partial)/float(Count)
+
+def  run_mother_trajectory(lmp,Nsteps,Thermo_damp):
+
+    lmp.command("fix NVT_equilibrium all nvt temp ${T} ${T} " +  str(Thermo_damp) + " tchain 1")
+    lmp.command("run " + str(Nsteps))
+    lmp.command("unfix NVT_equilibrium")
+
+    return None
 
 
 def get_fix_data(lmp, fixname, variables, Nbins=None):
