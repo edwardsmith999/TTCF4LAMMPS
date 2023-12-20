@@ -283,13 +283,11 @@ The file "System setup.in" contains only the declaration of the remaining parame
 	nlmp = lmp.numpy
 	lmp.file("system_setup.in")
 	lmp.command("timestep " + str(dt))
- 	lmp.command("timestep " + str(dt))
-
-
+ 	
 RUN THERMALIZATION
 ------
 
-This block appends to the existing LAMMPS object (loaded from system_setup.in) the set of commands listed in the function, which represent the equilibrium dynamics (mother trajectory) of the system. Since multiple runs are perfomred, ant the end of each run all the fixes and computes must be discarded.
+This block appends to the existing LAMMPS object (loaded from system_setup.in) the set of commands listed in the function, which represent the equilibrium dynamics (mother trajectory) of the system. Since multiple runs are perfrmed, ant the end of each run all the fixes and computes must be discarded. At the end of the equilibrium run, the state of the system is saved 
 
 
 	run_mother_trajectory(lmp,Nsteps_Thermalization,Thermo_damp)
@@ -301,41 +299,155 @@ This block appends to the existing LAMMPS object (loaded from system_setup.in) t
    		lmp.command("unfix NVT_equilibrium")
 
    		return None
+     
+At the end of the equilibrium run, the state of the system is saved via the following
+
+	state = save_state(lmp, "snapshot")
+
+	def save_state(lmp, statename, save_variables=["x", "y", "z", "vx", "vy", "vz"]):
+
+    		state = {}
+    		state['name'] = statename
+    		state['save_variables'] = save_variables
+    		cmdstr = "fix " + statename + " all store/state 0 {}".format(' '.join(save_variables))
+    		lmp.command(cmdstr)
+
+    		return state
 
 LOOP OVER THE DAUGHTER TRAJECTORIES
 ------
 
-This block appends to the existing LAMMPS input file the set of commands listed in the "Run equilibrium thermalization" block.
-Before the decorrelation, the inital state is loaded, and after the decorrelation, a new initial state is produced. As the load state is called several times, the set of operations are stored in the separate file "load_state.lmp", and included in the script with the command include ./load_state.lmp.
-In the last block, the structures where the ouptut will be saved are initialized to 0
-
-	for Nd in range(Ndaughters):
-
-		lmp.command("include ./load_state.lmp")
-		lmp.command("fix NVT_sampling all nvt temp ${T} ${T} ${Thermo_damp} tchain 1")
-		lmp.command("run " + str(Nsteps_Decorrelation))
-		lmp.command("unfix NVT_sampling")
-		lmp.command("fix snapshot all store/state 0 x y z vx vy vz")
+The script loop over the number of daughter trajectories (excluding the mappings). At each step, the last saved state of the system is loaded, 
 
 
-   		DAV_profile_partial[:,:,:] = 0
-    		DAV_global_partial[:,:]    = 0
-        
-    		integrand_profile_partial[:,:,:] = 0
-    		integrand_global_partial[:,:]    = 0
+	load_state(lmp, state)
+	def load_state(lmp, state):
+    
+    		cmdstr = "change_box all  xy final 0\n"
+    		for i, s in enumerate(state['save_variables']):
+       		varname = "p"+s 
+       	 	cmdstr += "variable " + varname + " atom f_"+state['name']+"["+str(i+1)+"]\n"
+        	cmdstr += "set             atom * " + s + " v_"+varname+"\n"
+
+    		for line in cmdstr.split("\n"):
+        		lmp.command(line)
+    		return None
+
+and the equilibrium run is carried on, until the system is fully decorrelated from the last saved state, after which a new state owerwrite the exisiting saved one.
+
+	run_mother_trajectory(lmp,Nsteps_Decorrelation,Thermo_damp)
+   	state = save_state(lmp, "snapshot")
 
 LOOP OVER THE MAPPINGS
 ------
 
-The first block of command set the proper mapping (selected by PYthon form the Maps list provided), load the initial state generated, apply the mapping (stored in the separate file "mapping.lmp"), and set the daughter dynamics (file "set_daughter.lmp"), that is, applying the external field and define the SLLOD dynamics
+Each step repesent a single mapped daughter trajectory. The last generated sample is first loaded, and then modified accordingly to the current mapping. The conversion from deciaml number to six-digits binary string is performed direcly by Python, unlike in the LAMMPS script example.
 
-      for Nm in range(Nmappings):
-              
-        	lmp.command("variable map equal " + str(Maps[Nm]))
-        	lmp.command("include ./load_state.lmp")
-        	lmp.command("include ./mappings.lmp")
-        	lmp.command("include ./set_daughter.lmp")
+	load_state(lmp, state)
+ 	apply_mapping(lmp, Maps[Nm])
+
+  	def apply_mapping(lmp, map_index):
+
+    		map_list=["x","y","z"]
+    		N=len(map_list)
+    
+    		ind=map_index
+     
+    		cmdstr=""
+    		for i in range(N):
+
+       		mp = ind % 2
+       		ind = np.floor(ind/2)
+    
+        	cmdstr += "variable map atom  v"+map_list[N-1-i]+"-(2*v"+map_list[N-1-i]+"*"+str(mp)+")\n"
+        	cmdstr += "set atom * v"+map_list[N-1-i]+" v_map\n"
+
+
+       	 	mp=ind % 2
+        	ind = np.floor(ind/2)
+
+        	cmdstr += "variable map atom  "+map_list[N-1-i]+"+(("+map_list[N-1-i]+"hi-2*"+map_list[N-1-i]+")*"+str(mp)+")\n"
+        	cmdstr += "set atom * "+map_list[N-1-i]+" v_map\n"
+
+    		for line in cmdstr.split("\n"):
+        		lmp.command(line)
+
+    		return None
 	 
+
+
+The set of commands related to the daughter trajectory and declared in the first section of the script are then loaded and discarded at the end of the daughter run
+
+	set_list(lmp, setlist)
+ 	unset_list(lmp, setlist)
+
+During the daughter run, the output quantities are repeatedly accessed and stored via the PyLAMMPS built-in function "nlmp.extract_fix" (called here within the Python function "get_fix_data"). The function must be called the precise timestep the output is produced. A loop cycles over the lenght of the simulation ot extract the output with the specified frequency. The total run is hence fragmented in a series of short run between outputs. The option " pre yes post no" can significanlty improve the performaces, but should be carefully tested, as it can impact the produced output. The first command "run 0" is here required to trigger the box deformation induced by SLLOD dynamics. It is likely an unintended effect, and can be removed for different systems, or different LAMMPS versions.
+
+	lmp.command("run 0 pre yes post yes")
+	data_profile[0, :, :]= get_fix_data(lmp, "Profile_variables", profile_variables, Nbins)
+        data_global[0, :] = get_fix_data(lmp, "Global_variables", global_variables)
+        omega = data_global[0, -1] 
+
+    
+        for t in range(1, Nsteps):
+            lmp.command("run " + str(Delay) + " pre yes post no")
+            data_profile[t, :, :]= get_fix_data(lmp, "Profile_variables", profile_variables, Nbins)
+            data_global[t, :] = get_fix_data(lmp, "Global_variables", global_variables)
+	    
+The last commands adds the produced output with the ones generated within the same initial state, 
+
+	ttcf.add_mappings(data_profile, data_global, omega)
+And the average over the four mappings is then integrated once the loop over the mappings has been performed. The phase average and the integration can be switched since both the average and the numerical integration are linear operations. The integration uses a second order Simpson method. 
+
+	ttcf.integrate(dt*Delay)
+
+ 	def integrate(self, step):
+
+        	#Perform the integration
+        	self.TTCF_profile_partial = TTCF_integration(self.integrand_profile_partial, step)
+        	self.TTCF_global_partial  = TTCF_integration(self.integrand_global_partial, step)
+
+        	#Add the initial value (t=0) 
+        	self.TTCF_profile_partial += self.DAV_profile_partial[0,:,:]
+        	self.TTCF_global_partial  += self.DAV_global_partial[0,:]
+
+        	#Average over the mappings and update the Count (# of children trajectories generated excluding the mappings)
+        	self.DAV_profile_partial  /= self.Nmappings   
+        	self.DAV_global_partial   /= self.Nmappings 
+        	self.TTCF_profile_partial /= self.Nmappings   
+        	self.TTCF_global_partial  /= self.Nmappings 
+
+        	self.Count += 1
+
+        	#Update all means and variances
+        	if self.Count >1:
+        
+            		self.TTCF_profile_var= update_var(self.TTCF_profile_partial, self.TTCF_profile_mean, self.TTCF_profile_var, self.Count)      
+            		self.DAV_profile_var= update_var(self.DAV_profile_partial, self.DAV_profile_mean, self.DAV_profile_var, self.Count)
+            		self.TTCF_global_var= update_var(self.TTCF_global_partial, self.TTCF_global_mean, self.TTCF_global_var, self.Count)   
+            		self.DAV_global_var= update_var(self.DAV_global_partial, self.DAV_global_mean, self.DAV_global_var, self.Count)
+          
+        	self.TTCF_profile_mean= update_mean(self.TTCF_profile_partial, self.TTCF_profile_mean, self.Count)     
+        	self.DAV_profile_mean= update_mean(self.DAV_profile_partial, self.DAV_profile_mean, self.Count)
+        	self.TTCF_global_mean= update_mean(self.TTCF_global_partial, self.TTCF_global_mean, self.Count)
+        	self.DAV_global_mean= update_mean(self.DAV_global_partial, self.DAV_global_mean, self.Count)
+
+        	self.DAV_profile_partial[:,:,:] = 0
+        	self.DAV_global_partial[:,:]    = 0
+            
+        	self.integrand_profile_partial[:,:,:] = 0
+        	self.integrand_global_partial[:,:]    = 0
+	 
+After the integration has been performed, the results is used to update the total mean and variance. The two quantities can be update using the one-passage Welford algorithm
+```math
+s^2_n= \dfrac{n-2}{n-1}s^2_{n-1}+\dfrac{(x_n-\bar{x}_{n-1})^2}{n}
+```
+```math
+\bar{x}_n= \dfrac{n-1}{n}\bar{x}_{n-1}+\dfrac{x_n}{n}
+```
+After the final process, the cycles starts over again from the last generated sample.
+Once all the trajectories have been generated. 
+
 The secon block defines the various computes and outputs. REMINDER: THE COMMANDS MUST MATCH THE ONES DECLARED AT THE BEGINNING OF THE PYTHON SCRIPT.
 
        	 	lmp.command(computestr)
