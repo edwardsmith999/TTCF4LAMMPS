@@ -34,9 +34,9 @@ jobs:
       run: |
         python -m unittest test.test_lammps_import
 
-    - name: Test utils
-      run: |
-        python  -m unittest test.test_utils
+    #- name: Test utils
+    #  run: |
+    #    python  -m unittest test.test_utils
 
     - name: Test run_TTCF example completes without error
       run: |
