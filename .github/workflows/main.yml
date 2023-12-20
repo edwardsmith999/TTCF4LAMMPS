@@ -24,7 +24,7 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install mpi4py numpy matplotlib pytest 
+        pip install mpi4py numpy matplotlib pytest scipy pytest 
 
     - name: Install PyLAMMPS
       run: |
@@ -37,9 +37,19 @@ jobs:
     - name: Test utils
       run: |
         pytest test/test_utils.py
+
+    - name: Test TTCF
+      run: |
+        pytest test/test_TTCF.py
         
     - name: Test run_TTCF example completes without error
       run: |
         python run_TTCF.py
+
+    - name: Test run_TTCF gives linear profile
+      run: |
+        python test/test_run_TTCF.py
+
+
 
 
