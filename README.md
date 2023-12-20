@@ -207,9 +207,9 @@ The proposed examples produces both a profile quantity (associated to a specific
 ```math
 \Omega(t)=\dfrac{Vp_{xy}(t)}{k_B T} 
 ```
-Note that the dissipation function at t=0 can be computed either from the mother or from the daughter trajectory. However, the LAMMPS implementation of the SLLOD algorithm contains various errors which result in a mismatch between the two calculations. However, the errors have minor effects of the final outcome. For simplicity, in the dissipation function is here monitired over the entire daughter trajectory. 
+Note that the dissipation function at t=0 can be computed either from the mother or from the daughter trajectory. However, the LAMMPS implementation of the SLLOD algorithm contains various errors which result in a mismatch between the two calculations. However, the errors have minor effects of the final outcome. For simplicity, in the dissipation function is here monitored over the entire daughter trajectory. 
 The same setup can be used with different systems, provided the various parameters, the dynamics, and the dissipation function are properly modified.
-The Python interface described here aims at managing the entire LAMMPS simulation without the need to produce one or more output files for each nonequilibrium run. Since TTCF calculation requires thousands, or up to million nonequilibrium runs, the file management can become cumbersome and substantially decrease the performaces in HPC clusters.
+The Python interface described here aims at managing the entire LAMMPS simulation without the need to any output file for each nonequilibrium run. Since TTCF calculation requires thousands, or up to million nonequilibrium runs, the file management can become cumbersome and substantially decrease the performaces in HPC clusters.
 The script uses the python LAMMPS interface (https://docs.lammps.org/Python_head.html), which allows to manage the LAMMPS run from python directly. As such, the otuput produced by the fix ave/time and fix ave/chuck commands are not written on file, but taken as input by Python.
 The Python script run_TTCF.py is strictured as follows:
 
@@ -226,39 +226,47 @@ DECLARATION OF VARIABLES AND STRUCTURES
 ------
 
 Here all the parameters needed by the Python scripts are declared. 
-These are the Type 2 parameters declared in the lammps setup. 
+These are the parameters requied by Python. The rest of the info about the simulation (temperature, density, etc) are stored in the LAMMPS input file which will be uploaded into a python object (see below).
 If needed, these parameters will be passed to LAMMPS via proper functions.
 
    
 
-	Tot_Daughters= 30000
-	Ndaughters=math.ceil(Tot_Daughters/nprocs) # number of daughters for each processor
-
-	Maps=[0,7,36,35]
-	Nmappings=len(Maps)
-
+	Tot_Daughters         = 100
+	Maps                  = [0,21,48,37]
 	Nsteps_Thermalization = 10000
 	Nsteps_Decorrelation  = 10000
 	Nsteps_Daughter       = 1000
+	Delay                 = 10
+	Nbins                 = 100
+	dt                    = 0.0025
 
-	Delay=10
-	Nsteps_eff=int(Nsteps_Daughter/Delay)+1
 
-	Nbins=100
+	Nmappings=len(Maps)
+	Ndaughters=int(np.ceil(Tot_Daughters/nprocs))
+	Nsteps=int(Nsteps_Daughter/Delay)+1
 	Bin_Width=1.0/float(Nbins)
-
-	dt = 0.0025
-
-
-In this section , the user can select the quanties to generate as output.
-IMPORTANT: THE RELATED COMPUTES MUST BE DECLARED IN THE DAUGHTER SETION AND MUST MATCH THE NAMES GIVEN HERE
+	Thermo_damp = 10*dt
 
 
+The dynamics of the nonequilibrium daughter trajectory is then declared. The user should translate each LAMMPS command into a string which is then appendend to the block. The order identical to that of a LAMMPS script. The blocks are respectively: definition of the dynamics (apply ext. field, set dynamics), definition and caluclation of profile variables, definition and caluclation of global variables (including the dissipation function, which must be the last output quantity listed in the related command)
+
+	setlist = []
+
+	setlist.append("variable vx_shear atom vx+${srate}*y")
+	setlist.append("set atom * vx v_vx_shear")
+	setlist.append("fix box_deform all deform 1 xy erate ${srate} remap v units box")
+	setlist.append("fix NVT_SLLOD all nvt/sllod temp ${T} ${T} " + str(Thermo_damp))
+ 
 	profile_variables = ['vx']
-	computestr = "compute profile_layers all chunk/atom bin/1d y lower "+str(Bin_Width)+" units reduced"
-	profilestr = "fix Profile_variables all ave/chunk 1 1 {} profile_layers {} ave one".format(Delay, ' '.join(profile_variables))
+	setlist.append("compute profile_layers all chunk/atom bin/1d y lower "+str(Bin_Width)+" units reduced")
+	setlist.append("fix Profile_variables all ave/chunk 1 1 {} profile_layers {} ave one".format(Delay, ' '.join(profile_variables)))
+	
+	setlist.append("compute        shear_T all temp/deform")
+	setlist.append("compute        shear_P all pressure shear_T ")
+	setlist.append("variable       Omega equal -c_shear_P[4]*(xhi-xlo)*(yhi-ylo)*(zhi-zlo)*${srate}/(${k_B}*${T})")
 	global_variables = ['c_shear_P[4]', 'v_Omega']
-	globalstr = "fix Global_variables all ave/time 1 1 {} {} ave one".format(Delay, ' '.join(global_variables))
+	setlist.append("fix Global_variables all ave/time 1 1 {} {} ave one".format(Delay, ' '.join(global_variables)))
+
 
 	
 CREATION OF LAMMPS OBJECT
@@ -266,26 +274,33 @@ CREATION OF LAMMPS OBJECT
 
 
 This operation associates a LAMMPS input file to a LAMMPS object.
-The file associated contains only the command found in the block "System setup" previously described
+The file "System setup.in" contains only the declaration of the remaining parameters and the initialization of the system. The command line arguments are '-sc', 'none' (no video output),
+'-log', 'none' (no log file), '-var', 'rand_seed' , seed_v (the random seed to initialize the velocities, different for each processor). The last command sets the timestep for the integration of the equations of motion. The parameter is declared in the script, and appended to the LAMMPS object via lmp.command()
       
 	args = ['-sc', 'none','-log', 'none','-var', 'rand_seed' , seed_v]
 	lmp = lammps(comm=MPI.COMM_SELF, cmdargs=args)
 	L = PyLammps(ptr=lmp)
 	nlmp = lmp.numpy
-	lmp.file("System_setup.in")
+	lmp.file("system_setup.in")
+	lmp.command("timestep " + str(dt))
+ 	lmp.command("timestep " + str(dt))
 
 
 RUN THERMALIZATION
 ------
 
-This block appends to the existing LAMMPS input file the set of commands listed in the "Run equilibrium thermalization" block. 
-The operation is perfomed using lmp.command("......") which enables one to attach to the LAMMPS object lmp any arbitrary LAMMPS command, including variable declaration (passing Type 2 parameters to LAMMPS) and run.
+This block appends to the existing LAMMPS object (loaded from system_setup.in) the set of commands listed in the function, which represent the equilibrium dynamics (mother trajectory) of the system. Since multiple runs are perfomred, ant the end of each run all the fixes and computes must be discarded.
 
-	lmp.command("timestep " + str(dt))
-	lmp.command("variable Thermo_damp equal " +  str(10*dt))
-	lmp.command(" fix NVT_thermalization all nvt temp ${T} ${T} ${Thermo_damp} tchain 1")
-	lmp.command("run " + str(Nsteps_Thermalization))
-	lmp.command("unfix NVT_thermalization")
+
+	run_mother_trajectory(lmp,Nsteps_Thermalization,Thermo_damp)
+
+	def  run_mother_trajectory(lmp,Nsteps_Decorrelation,Thermo_damp):
+
+		lmp.command("fix NVT_equilibrium all nvt temp ${T} ${T} " +  str(Thermo_damp) + " tchain 1")
+    		lmp.command("run " + str(Nsteps_Decorrelation))
+   		lmp.command("unfix NVT_equilibrium")
+
+   		return None
 
 LOOP OVER THE DAUGHTER TRAJECTORIES
 ------
