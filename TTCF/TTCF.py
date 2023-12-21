@@ -182,7 +182,7 @@ class TTCF():
             for i in range(len(self.profile_variables)):
             
                 var_name=self.profile_variables[i]
-                #replace / charachetr in the name to avoid crashes (it is read as a folder)
+                #replace "/" character in the name to avoid crashes (it is read as a folder)
                 var_name=var_name.replace('/', '_')
              
                 print(var_name)
