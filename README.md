@@ -215,13 +215,22 @@ The Python script run_TTCF.py is structured as follows:
 
 SPLIT THE SIMULATION INTO N SINGLE-CORE RUNS (N # OF CORES SELECTED) 
 ------
-Each core is assigned to a LAMMPS run. of N cores, N independent mother trajectories are generated, as well as the releted daughter trajectories. Each run is characterized by a different randon seed, which is used to randomize the inital momenta (see below).
+Each core is assigned to a LAMMPS run. of N cores, N independent mother trajectories are generated, as well as the releted daughter trajectories.
 
 	comm = MPI.COMM_WORLD
 	irank = comm.Get_rank()
 	nprocs = comm.Get_size()
 	t1 = MPI.Wtime()
 	root = 0
+
+ Each run is characterized by a different randon seed, based on the MPI processor rank (called `irank`) which is used to randomize the inital momenta (see below).
+ 
+	np.random.seed(irank)
+	seed_v = str(int(np.random.randint(1, 1e5 + 1)))
+
+	#Define LAMMPS object and initialise
+	args = ['-sc', 'none','-log', 'none','-var', 'rand_seed' , seed_v]
+	lmp = lammps(comm=MPI.COMM_SELF, cmdargs=args)
 
 This is shown graphically for two processors here,
 
