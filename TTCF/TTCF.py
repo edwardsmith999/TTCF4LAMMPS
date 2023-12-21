@@ -106,11 +106,11 @@ class TTCF():
 
         #Get FINAL COLUMN BECAUSE BY DEFAULT LAMMPS GIVE YOU ALSO THE USELESS INFO ABOUT THE BINS.
         # For  N QUANTITIES, could TAKE THE LAST N ELEMENTS
-        self.TTCF_profile_mean = self.TTCF_profile_mean[:,:,-1]
-        self.DAV_profile_mean  = self.DAV_profile_mean[:,:,-1]
+        self.TTCF_profile_mean = self.TTCF_profile_mean[:,:,2:]
+        self.DAV_profile_mean  = self.DAV_profile_mean[:,:,2:]
 
-        self.TTCF_profile_var = self.TTCF_profile_var[:,:,-1]
-        self.DAV_profile_var  = self.DAV_profile_var[:,:,-1]
+        self.TTCF_profile_var = self.TTCF_profile_var[:,:,2:]
+        self.DAV_profile_var  = self.DAV_profile_var[:,:,2:]
 
         self.TTCF_global_var/= float(self.Count)
         self.DAV_global_var /= float(self.Count)
