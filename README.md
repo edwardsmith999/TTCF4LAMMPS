@@ -223,6 +223,10 @@ Each core is assigned to a LAMMPS run. of N cores, N independent mother trajecto
 	t1 = MPI.Wtime()
 	root = 0
 
+This is shown graphically for two processors here,
+
+![alt text](https://github.com/edwardsmith999/TTCF/blob/master/figures/children_MPI.png)
+
 DECLARATION OF VARIABLES AND STRUCTURES
 ------
 
