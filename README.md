@@ -455,5 +455,5 @@ FINALIZE THE SIMULATION
 Once all the trajectories have been generated. The script loops over the processors and averages the results. 
 
 	ttcf.finalise_output(irank, comm)
- The final output is the mean of the desired quantities and their standard error (SE).
+ The final output is the mean of the desired quantities and their standard error (SE). IMPORTANT: if each process has a single daughter, then the variance of the process is zero, and the total variance is 0 likewise. The fianl standard error is correctly computed ONLY IF there are 2 or more daughters in each process.
  
