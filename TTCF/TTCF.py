@@ -178,12 +178,26 @@ class TTCF():
     def save_data(self):
 
         if self.output_finalised and self.irank == self.root:
-            #Save variables at end of each batch in case of crash
-            np.savetxt('profile_DAV.txt', self.DAV_profile_mean_total)
-            np.savetxt('profile_TTCF.txt', self.TTCF_profile_mean_total)
+            #print a separate file for each profile variable
+            for i in range(len(self.profile_variables)):
             
-            np.savetxt('profile_DAV_SE.txt', self.DAV_profile_SE_total)
-            np.savetxt('profile_TTCF_SE.txt', self.TTCF_profile_SE_total)
+                var_name=self.profile_variables[i]
+                #replace / charachetr in the name to avoid crashes (it is read as a folder)
+                var_name=var_name.replace('/', '_')
+             
+                print(var_name)
+                
+                np.savetxt('profile_DAV_' + var_name + '.txt', self.DAV_profile_mean_total[:,:,i])
+                np.savetxt('profile_TTCF_' + var_name + '.txt', self.TTCF_profile_mean_total[:,:,i])
+                np.savetxt('profile_DAV_SE_' + var_name + '.txt', self.DAV_profile_SE_total[:,:,i])
+                np.savetxt('profile_TTCF_SE_' + var_name + '.txt',self.TTCF_profile_SE_total[:,:,i])
+            
+            
+            #np.savetxt('profile_DAV.txt', self.DAV_profile_mean_total)
+            #np.savetxt('profile_TTCF.txt', self.TTCF_profile_mean_total)
+            
+            #np.savetxt('profile_DAV_SE.txt', self.DAV_profile_SE_total)
+            #np.savetxt('profile_TTCF_SE.txt', self.TTCF_profile_SE_total)
             
             np.savetxt('global_DAV.txt', self.DAV_global_mean_total)
             np.savetxt('global_TTCF.txt', self.TTCF_global_mean_total)
