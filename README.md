@@ -402,6 +402,9 @@ And the average over the four mappings is then integrated once the loop over the
 
 	ttcf.integrate(dt*Delay)
 
+
+ Which is defined as follows,
+
  	def integrate(self, step):
 
         	#Perform the integration
