@@ -1,0 +1,41 @@
+################ computation of the friction coefficient  ######################
+include ./friction_coeff.lmp
+
+################ computation of the velocity profile  ######################
+
+compute layers sys chunk/atom bin/1d y lower ${Bin_Width} units reduced
+fix avechunks   sys ave/chunk 1 1 ${Delay} layers density/number vx ave one file Profile_quantities_${daughter_index}_${map}.txt format %15.10g
+
+
+################ computation of the dissipation function  ######################
+
+compute fu wallandsites_upper bond/local fx 
+compute sfx_u all reduce sum c_fu
+compute fl wallandsites_lower bond/local fx 
+compute sfx_l all reduce sum c_fl
+
+variable	fx_u equal c_sfx_u
+variable	fx_l equal c_sfx_l
+
+variable    Om1 equal  v_fx_u*${vwall}
+variable    Om2 equal -v_fx_l*${vwall}
+
+variable Omega equal (v_Om1+v_Om2)/(${k_B}*${T})
+
+################ computation of the shear pressure at the interface (method of planes)  ######################
+
+compute         MOP_1 sys stress/mop y ${rupinterface} total
+compute         MOP_2 sys stress/mop y ${rlowinterface} total
+
+
+variable pxy1 equal c_MOP_1[1]
+variable pxy2 equal c_MOP_2[1]
+
+
+################ generate the global variable output (quantities for friction coeff, shear pressure, dissipation function)  ######################
+
+fix   	avetime1 all ave/time 1 1 ${Delay} v_pxy1 v_pxy2 v_Omega ave one file Global_quantities_${daughter_index}_${map}.txt format %15.10g mode scalar                 
+
+
+fix   	avetime2 all ave/time 1 1 ${Delay} c_cfb1[1] v_vcmyb1 c_cfb2[1] v_vcmyb2 c_cfb3[1] v_vcmyb3 c_cfb4[1] v_vcmyb4 c_cfb5[1] v_vcmyb5 c_cft1[1] v_vcmyt1 c_cft2[1] v_vcmyt2 c_cft3[1] v_vcmyt3 c_cft4[1] v_vcmyt4 c_cft5[1] v_vcmyt5 v_vcmybottomlayer v_vcmytoplayer ave one file Friction_coefficient_${daughter_index}_${map}.txt format %15.10g mode scalar           
+

@@ -1,0 +1,39 @@
+variable rho_f equal 0.7       							#FLUID DENSITY
+variable rho_w equal 0.8        						#WALL DENSITY
+ 
+variable T equal 1             							#TEMPERATURE
+variable k_B equal 1             						#BOLTZMANN CONSTANT
+
+
+variable L equal 30            							#MINIMUM SYSTEM SIZE (ALONG PERIODIC DIRECTION, REAL LENGTH IS A MULTIPLE OF THE LATTICE SIZE )
+variable chwidth equal 10      							#MINIMUM CHANNEL WIDTH (REAL WIDHT IS A MULTIPLE OF THE LATTICE SIZE )
+variable wlayers equal 2       							#LAYERS OF PARTICLES IN EACH WALL
+
+
+variable rc equal 2.5          							#INTERACTION RADIUS
+variable ff_param equal 1.2    			 				#FLUID-FLUID WETTING PARAMETER
+variable wf_param equal 0.6325  						#WALL-FLUID WETTING PARAMETER
+variable Kspring equal 150      						#SPRING CONSTANT FOR WALL-LATTICE FORCE
+
+variable Integration_step equal 0.005        			#INTEGRATION STEP
+variable Thermo_damp equal 100*${Integration_step}   	#DAMPING FACTOR FOR NH DYNAMICS
+
+
+
+variable Nthermalization equal 1000000    				#THERMALIZATION LENGTH
+variable Nfric_coeff equal 100000            			#TIMESTEPS FOR FRICTION COEFF. CALCULATION
+variable Ndecorrelation equal 10000       				#TIMESTEPS BETWEEN SAMPLES
+
+
+variable Delta_s equal 0.25              				#SLAB WIDTH FOR FRICTION COEFF. CALCULATION 
+variable Delta_0 equal 0.0								#DISTANCE BETWEEN WALL AND SLAB FOR FRICTION COEFF. CALCULATION 
+
+variable NBin equal 100                     			#NUMBER OF BIN FOR PROFILE QUANTITIES 
+variable Bin_Width equal 1.0/${NBin}       				#BIN WIDTH
+
+
+variable Daughter_run equal 2500        				#TIMESTEPS FOR NONEQUILIBRIUM RUN
+variable Delay equal 5                  				#TIMESTEPS BETWEEN OUTPUT CALCULATION
+
+
+  

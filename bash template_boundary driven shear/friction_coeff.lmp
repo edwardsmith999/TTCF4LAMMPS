@@ -1,0 +1,102 @@
+################ slab definition  ######################
+
+variable 	update equal ${Delay}
+
+variable b_0 equal ${rlowinterface}
+variable t_1 equal ${rupinterface}
+
+variable b1_1 equal ${b_0}+1*${Delta_s}+${Delta_0}
+variable b2_1 equal ${b_0}+2*${Delta_s}+${Delta_0}
+variable b3_1 equal ${b_0}+3*${Delta_s}+${Delta_0}
+variable b4_1 equal ${b_0}+4*${Delta_s}+${Delta_0}
+variable b5_1 equal ${b_0}+5*${Delta_s}+${Delta_0}
+
+variable t1_0 equal ${t_1}-1*${Delta_s}-${Delta_0}
+variable t2_0 equal ${t_1}-2*${Delta_s}-${Delta_0}
+variable t3_0 equal ${t_1}-3*${Delta_s}-${Delta_0}
+variable t4_0 equal ${t_1}-4*${Delta_s}-${Delta_0}
+variable t5_0 equal ${t_1}-5*${Delta_s}-${Delta_0}
+
+##################### Bottom wall ######################
+region 		b1 block INF INF  ${b_0}  ${b1_1} INF INF units box 
+region 		b2 block INF INF  ${b_0}  ${b2_1} INF INF units box 
+region 		b3 block INF INF  ${b_0}  ${b3_1} INF INF units box 
+region 		b4 block INF INF  ${b_0}  ${b4_1} INF INF units box 
+region 		b5 block INF INF  ${b_0}  ${b5_1} INF INF units box 
+
+#################### Top wall ########################
+region          t1 block INF INF  ${t1_0}  ${t_1} INF INF units box 
+region          t2 block INF INF  ${t2_0}  ${t_1} INF INF units box 
+region          t3 block INF INF  ${t3_0}  ${t_1} INF INF units box 
+region          t4 block INF INF  ${t4_0}  ${t_1} INF INF units box 
+region          t5 block INF INF  ${t5_0}  ${t_1} INF INF units box 
+
+#################### Bottom wall #####################
+group           gb1 dynamic fluid  region b1 every ${update}   
+group           gb2 dynamic fluid  region b2 every ${update}   
+group           gb3 dynamic fluid  region b3 every ${update}   
+group           gb4 dynamic fluid  region b4 every ${update}   
+group           gb5 dynamic fluid  region b5 every ${update}   
+################### Top wall ##########################
+group           gt1 dynamic fluid  region t1 every ${update}
+group           gt2 dynamic fluid  region t2 every ${update}
+group           gt3 dynamic fluid  region t3 every ${update}
+group           gt4 dynamic fluid  region t4 every ${update}
+group           gt5 dynamic fluid  region t5 every ${update}
+
+################ number of particles within each slab  ######################
+
+variable nt1 equal count(gt1)
+variable nt2 equal count(gt2)
+variable nt3 equal count(gt3)
+variable nt4 equal count(gt4)
+variable nt5 equal count(gt5)
+
+variable nb1 equal count(gb1)
+variable nb2 equal count(gb2)
+variable nb3 equal count(gb3)
+variable nb4 equal count(gb4)
+variable nb5 equal count(gb5)
+
+
+
+############## velocity of the slabs ###############
+
+
+############# Bottom wall #############################
+variable vcmyb1  equal vcm(gb1,x)
+variable vcmyb2  equal vcm(gb2,x)
+variable vcmyb3  equal vcm(gb3,x)
+variable vcmyb4  equal vcm(gb4,x)
+variable vcmyb5  equal vcm(gb5,x)
+
+############ Top wall ###############################
+variable vcmyt1  equal vcm(gt1,x)
+variable vcmyt2  equal vcm(gt2,x)
+variable vcmyt3  equal vcm(gt3,x)
+variable vcmyt4  equal vcm(gt4,x)
+variable vcmyt5  equal vcm(gt5,x)
+
+
+############ Top wall velocity ###############################
+variable vcmytoplayer  equal vcm(upper_wall,x)
+
+############ Bottom wall velocity ###############################
+variable vcmybottomlayer  equal vcm(lower_wall,x)
+
+
+
+############## force between slabs and wall ###############
+
+compute 	cfb1  gb1 group/group lower_wall pair yes  
+compute 	cfb2  gb2 group/group lower_wall pair yes  
+compute 	cfb3  gb3 group/group lower_wall pair yes  
+compute 	cfb4  gb4 group/group lower_wall pair yes  
+compute 	cfb5  gb5 group/group lower_wall pair yes  
+
+
+compute         cft1  gt1 group/group upper_wall pair yes  
+compute         cft2  gt2 group/group upper_wall pair yes  
+compute         cft3  gt3 group/group upper_wall pair yes  
+compute         cft4  gt4 group/group upper_wall pair yes  
+compute         cft5  gt5 group/group upper_wall pair yes  

@@ -1,0 +1,62 @@
+
+units		    lj
+dimension	    3
+atom_style      full 
+neigh_modify	delay 0 every 1
+boundary		p f p
+
+include ./sim_params.lmp
+
+timestep ${Integration_step}
+
+variable rlatt equal (4.0/${rho_w})^(1.0/3)
+
+variable totlayers equal ceil(2*${chwidth}/${rlatt})+2*${wlayers}
+
+variable    Ly equal (${totlayers}-1)/2
+variable    Kstiff equal 0.5*${Kspring}
+
+variable lowwall equal -1.0/4
+variable wallwidth equal (${wlayers}-1.0)/2+1.0/2
+variable upwall equal ${Ly}+1.0/4
+variable lowinterface equal ${lowwall}+${wallwidth}
+variable upinterface equal ${upwall}-${wallwidth}
+
+variable rlowinterface equal (${lowinterface})*${rlatt}
+variable rupinterface equal (${upinterface})*${rlatt}
+
+pair_style      lj/cut ${rc}
+bond_style      harmonic
+
+read_restart       thermalized_sys.rst
+
+bond_coeff       1 ${Kstiff} 0.0
+
+
+velocity	    upper_sites set 0.0 0.0 0.0 units box
+velocity	    lower_sites set 0.0 0.0 0.0 units box
+
+fix             1 fluid nve
+
+fix             2 upper_wall nvt temp $T $T ${Thermo_damp} tchain 1
+fix             3 lower_wall nvt temp $T $T ${Thermo_damp} tchain 1
+
+compute		    temperature_upper upper_wall temp/partial 0 1 1
+compute		    temperature_lower lower_wall temp/partial 0 1 1
+
+fix_modify      2 temp temperature_upper
+fix_modify      3 temp temperature_lower
+
+fix		        4 upper_sites setforce 0.0 0.0 0.0
+fix		        5 lower_sites setforce 0.0 0.0 0.0
+fix             6 upper_sites nve
+fix             7 lower_sites nve 
+
+
+include ./friction_coeff.lmp
+
+fix   	avetime all ave/time 1 1 ${Delay} c_cfb1[1] v_vcmyb1 c_cfb2[1] v_vcmyb2 c_cfb3[1] v_vcmyb3 c_cfb4[1] v_vcmyb4 c_cfb5[1] v_vcmyb5 c_cft1[1] v_vcmyt1 c_cft2[1] v_vcmyt2 c_cft3[1] v_vcmyt3 c_cft4[1] v_vcmyt4 c_cft5[1] v_vcmyt5 v_vcmybottomlayer v_vcmytoplayer ave one file Friction_coefficient_equilibrium.txt format %15.10g mode scalar           
+
+
+run	           ${Nfric_coeff}
+

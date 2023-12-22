@@ -1,0 +1,51 @@
+# THIS IS THE GENERAL SCHEME FOR THE SUBMISSION OF THE TTCF IMPLEMENTATION VIA A BASH SCRIPT.
+# THE SETUP IS THE SO-CALLED EMBARRASSINGLY PARALLEL. THERE ARE SEVERAL SYSTEMS O MANAGE THE BASH SUBMISSION.
+# IN THIS EXAMPLE, THE REQUEST FOR THE COMPUTATIONAL REOSURCES ARE HENCE OMITTED.  
+# THE SCRIPT STARTS DECLARES THE RELEVANT QUANTITIES AND CYCLES OVER THE N CORES REQUESTED. EACH RUN IS A SINGLE-CORE RUN
+
+
+
+Ndaughters="100"
+Nmappings='4'
+Shear_rate='0.01'
+
+seed_file=seed.txt # FILE WITH THE LIST OF THE RANDON SEEDS TO INITIALIZE EACH MOTHER TRAJECTORY
+
+FOR CORE_INDEX 1:NCORES   # LOOP OVER THE CORES
+
+	seed_v=`sed -n ${CORE_INDEX}p ${seed_file}`   # SELECT PROPER SEED FROM LIST
+
+    # CREATE A FOLDER FOR EACH RUN
+
+	mkdir mother$CORE_INDEX             
+
+	cp mother.in mother$CORE_INDEX/.
+	cp daughter.in mother$CORE_INDEX/.
+	cp equilibrium_friction_coeff.in.in mother$CORE_INDEX/.
+
+	cp sim_params.lmp mother$CORE_INDEX/.
+	cp compute_quantities.lmp mother$CORE_INDEX/.
+	cp friction_coeff.lmp mother$CORE_INDEX/.
+
+	cd mother$CORE_INDEX
+
+
+    # RUN MOTHER TRAJECTORY
+	mpirun -np 1 lmp -log none -screen none -var rand_seed ${seed_v} -var Ndaughters "${Ndaughters}" -in mother.in 
+    
+    # LOOP OVER GENERATED STATES
+	for ((j=1;j<="${Ndaughters}";j++))
+	do
+		# LOOP OVER THE MAPPINGS
+		for ((k=1;k<="${Nmappings}";k++))
+		do
+			mpirun -np 1 lmp -log none -screen none -var Daughter_index "${j}" -var map "${k}" -var srate "${Shear_rate}" -in daughter.in 
+
+		done
+
+
+	done
+	# EQUILIBRIUM CALUCLATION OF THE FRICTION COEFFICIENT
+	mpirun -np 1 lmp -log none -screen none -in equilibrium_friction_coeff.in 
+
+END

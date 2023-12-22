@@ -1,0 +1,175 @@
+########## SYSTEM SETUP ##########
+
+units		    lj
+dimension	    3
+atom_style      full 
+neigh_modify	delay 0 every 1
+boundary		p f p
+
+include ./sim_params.lmp
+
+timestep ${Integration_step}
+
+########## SET GEOMETRY ##########
+
+variable    frac  equal 1-${rho_f}/${rho_w} 
+
+
+variable rlatt equal (4.0/${rho_w})^(1.0/3)
+
+variable totlayers equal ceil(2*${chwidth}/${rlatt})+2*${wlayers}
+
+variable    Lx equal ceil(${L}/${rlatt})
+variable    Lz equal ceil(${L}/${rlatt})
+variable    Ly equal (${totlayers}-1)/2
+variable    outbuff equal 2
+variable    Kstiff equal 0.5*${Kspring}
+
+variable	ymin equal -${outbuff}
+variable	ymax equal ${Ly}+${outbuff}
+
+variable lowwall equal -1.0/4
+variable wallwidth equal (${wlayers}-1.0)/2+1.0/2
+variable upwall equal ${Ly}+1.0/4
+variable lowinterface equal ${lowwall}+${wallwidth}
+variable upinterface equal ${upwall}-${wallwidth}
+
+variable rlowinterface equal ${lowinterface}*${rlatt}
+variable rupinterface equal ${upinterface}*${rlatt}
+
+lattice         fcc ${rho_w}
+region          simbox block 0 ${Lx} ${ymin} ${ymax} 0 ${Lz} units lattice
+create_box      5 simbox bond/types 1 extra/bond/per/atom 1
+region		    latticeregion block INF INF 0 ${Ly} INF INF units lattice
+region		    lower block INF INF ${lowwall} ${lowinterface} INF INF units lattice
+region		    upper block INF INF ${upinterface} ${upwall} INF INF units lattice
+
+region		    lower_wall block INF INF ${lowwall} ${lowinterface} INF INF units lattice
+region		    upper_wall block INF INF ${upinterface} ${upwall} INF INF units lattice
+
+region		    fluidregion block INF INF ${lowinterface} ${upinterface} INF INF units lattice
+
+########## GENERATE ATOMS ##########
+
+create_atoms    1 region latticeregion
+
+group           tempfluid region fluidregion
+
+group           lower region lower
+group           upper region upper
+
+set             group lower type 2
+set	            group upper type 3
+
+group		    lower_wall type 2
+group		    upper_wall type 3
+
+delete_atoms    region fluidregion
+
+
+lattice         fcc ${rho_w}
+create_atoms    2 region latticeregion
+
+
+group           tempupwall region upper
+group           templowwall region lower
+
+group           lower_sites subtract templowwall lower 
+group           upper_sites subtract tempupwall upper   
+
+set             group lower_sites type 4
+set	            group upper_sites type 5
+
+group		    wallandsites_lower union lower_sites lower_wall
+group		    wallandsites_upper union upper_sites upper_wall
+
+group           fluid region fluidregion
+set             group fluid type 1
+
+########## SET FORCES ##########
+
+variable epswf equal ${wf_param}^2
+variable sigmawf equal 1.0/${wf_param}^(1.0/6)
+
+variable epsff equal ${ff_param}^2
+variable sigmaff equal 1.0/${ff_param}^(1.0/6)
+
+mass            * 1.0
+pair_style      lj/cut ${rc}
+
+pair_coeff       1 1 ${epsff} ${sigmaff}
+pair_coeff       1 2 ${epswf} ${sigmawf}
+pair_coeff       1 3 ${epswf} ${sigmawf}
+pair_coeff       1 4 0.0      0.0
+pair_coeff       1 5 0.0      0.0
+
+pair_coeff       2 2 1.0      1.0
+pair_coeff       2 3 1.0      1.0
+pair_coeff       2 4 0.0      0.0
+pair_coeff       2 5 0.0      0.0
+
+pair_coeff       3 3 1.0      1.0
+pair_coeff       3 4 0.0      0.0
+pair_coeff       3 5 0.0      0.0
+
+pair_coeff       4 4 0.0 0.0
+pair_coeff       4 5 0.0 0.0
+
+pair_coeff       5 5 0.0 0.0
+
+
+delete_atoms random fraction ${frac} yes fluid fluidregion ${rand_seed} 
+
+reset_ids 
+
+
+group		    wall union lower_wall upper_wall
+
+
+group           sys  union fluid wall
+
+
+bond_style       harmonic
+bond_coeff       1 ${Kstiff} 0.0
+create_bonds     many lower_sites lower_wall 1 0.0 0.0001
+create_bonds     many upper_sites upper_wall 1 0.0 0.0001
+
+velocity        sys create $T ${rand_seed}
+
+########## SET DYNAMICS ##########
+
+velocity	    upper_sites set 0.0 0.0 0.0 units box
+velocity	    lower_sites set 0.0 0.0 0.0 units box
+
+fix             1 fluid nve
+
+fix             2 upper_wall nvt temp $T $T ${Thermo_damp} tchain 1
+fix             3 lower_wall nvt temp $T $T ${Thermo_damp} tchain 1
+
+compute		    temperature_upper upper_wall temp/partial 0 1 1
+compute		    temperature_lower lower_wall temp/partial 0 1 1
+
+fix_modify      2 temp temperature_upper
+fix_modify      3 temp temperature_lower
+
+fix		        4 upper_sites setforce 0.0 0.0 0.0
+fix		        5 lower_sites setforce 0.0 0.0 0.0
+fix             6 upper_sites nve
+fix             7 lower_sites nve 
+
+########## THERMALIZATION ##########
+
+run   ${Nthermalization}
+
+write_restart    thermalized_sys.rst
+
+########## GENERATION OF THE INITIAL STATES ##########
+
+label loop
+variable index loop   ${Ndaughters}
+
+	run   ${Ndecorrelation}
+	write_restart    state${index}.rst
+    
+next index
+jump SELF loop
