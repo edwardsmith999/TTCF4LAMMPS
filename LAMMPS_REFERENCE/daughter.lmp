@@ -1,0 +1,58 @@
+########### Apply the external field ###########
+
+variable        vx_shear atom vx+${srate}*y     
+set             atom * vx v_vx_shear            
+
+
+########### Set dynamics for the daughter trajectory ###########
+
+fix     box_deform all deform 1 xy erate ${srate} remap v units box
+fix     NVT_SLLOD all nvt/sllod temp ${T} ${T} ${Thermo_damp}
+
+
+########### Set quantities to compute ###########
+
+compute		shear_T all temp/deform     
+compute		shear_P all pressure shear_T
+
+variable Omega equal c_shear_P[4]*(xhi-xlo)*(yhi-ylo)*(zhi-zlo)*${srate}/(${k_B}*${T})
+
+compute profile_layers all chunk/atom bin/1d y lower ${Bin_Width} units reduced
+
+fix Profile_variables all ave/chunk 1 1 ${Delay} profile_layers vx ave one file Profiles_variables_${daughter_index}_${map_index}.txt format %15.10g 
+
+fix Global_variables all ave/time 1 1 ${Delay} c_shear_P[4] v_Omega ave one file Global_variables_${daughter_index}_${map_index}.txt format %15.10g mode scalar
+
+
+########### Run trajectory ###########
+
+run   ${Nsteps_Daughter}
+
+
+########### Discard all nonequilibrium dynamics ###########
+
+unfix   	Profile_variables 
+unfix   	Global_variables
+
+unfix 		box_deform
+unfix 		NVT_SLLOD
+
+uncompute 	profile_layers
+uncompute   shear_T
+uncompute	shear_P
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

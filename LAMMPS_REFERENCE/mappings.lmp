@@ -1,0 +1,21 @@
+
+variable mpx equal     floor((${map})/(2^5))
+variable mvy equal     floor((${map}-(${mpx}*2^5))/(2^4))
+variable mpy equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4))/(2^3))
+variable mvy equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4)-(${mpz}*2^3))/(2^2))
+variable mpz equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4)-(${mpz}*2^3)-(${mvx}*2^2))/(2^1))
+variable mvz equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4)-(${mpz}*2^3)-(${mvx}*2^2)-(${mvy}*2^1))/(2^0))
+
+variable        px atom x+((xhi-2*x)*${mpx})
+variable        py atom y+((yhi-2*y)*${mpy})
+variable        pz atom z+((zhi-2*z)*${mpz})
+variable        vx atom vx-(2*vx*${mvx})
+variable        vy atom vy-(2*vy*${mvy})
+variable        vz atom vz-(2*vz*${mvz})
+
+set             atom * x  v_px 
+set             atom * y  v_py 
+set             atom * z  v_pz 
+set             atom * vx v_vx 
+set             atom * vy v_vy 
+set             atom * vz v_vz

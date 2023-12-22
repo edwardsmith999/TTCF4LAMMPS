@@ -1,0 +1,112 @@
+########### Parameters ###########
+	
+variable rho 	equal 0.8442                             #Density
+variable Npart 	equal 256                                #Number of particles
+variable T 		equal 0.722                              #Temperature 
+variable L 		equal (${Npart}/${rho})^(1.0/3)          #system size 
+variable rc 	equal 2^(1/6)                            #Interaction radius for Lennard-Jones (effectively WCA potential)
+variable k_B 	equal 1                                  #Boltzmann Constant
+
+variable srate 	equal 1                                  #Shear rate applied   
+
+variable Ndaughters equal  	1000                         #Total number of initial states generated
+
+variable Maps 	    vector [0,21,48,37]					 #Selected mapping (variable vector available only for LAMMPS 2023)
+variable Nmappings 	equal  	4							 #Total number of mappings
+
+variable Nsteps_Thermalization  equal  	10000            #Lenght of thermalization run
+variable Nsteps_Decorrelation  	equal  	10000			 #Lenght of decorrelation runs
+variable Nsteps_Daughter      	equal  	1000             #Lenght of nonequilibrium runs
+
+variable Delay equal 10    								 #Frequency (in timesteps) for output generation along the nonequilibrium runs
+
+
+variable Nbins 	   equal 100 							 #Number of bins for profile output
+variable Bin_Width equal 1.0/${Nbins}					 #Bin width for profile output 
+
+variable dt          equal 0.0025                        #Time step for Verlet integration
+variable Thermo_damp equal 10*${dt}                       #Damping factor for the NH thermostat
+
+########### System setup ###########
+
+units		    lj
+dimension	    3
+atom_style      full 
+neigh_modify	delay 0 every 1
+boundary		p p p
+
+  
+lattice         fcc ${rho}
+region          simbox prism 0 ${L} 0 ${L} 0 ${L} 0 0 0 units box
+create_box      1 simbox 
+create_atoms    1 region simbox
+
+group           fluid region simbox
+
+mass            * 1.0
+pair_style      lj/cut ${rc}
+
+pair_coeff       1 1 1.0 1.0
+
+velocity        fluid create $T 12345   
+
+timestep ${dt}
+
+
+########### Run thermalization ###########
+
+fix             NVT_equilibrium all nvt temp ${T} ${T} ${Thermo_damp} tchain 1
+  
+run   ${Nsteps_Thermalization}
+
+unfix NVT_equilibrium
+
+fix snapshot all store/state 0 x y z vx vy vz
+
+label daughter_loop
+variable daughter_index loop   ${Ndaughters}
+
+
+	########### Generate sample ###########
+
+	include ./load_state.lmp
+
+    fix             NVT_equilibrium all nvt temp ${T} ${T} ${Thermo_damp} tchain 1
+	
+	run   ${Nsteps_Decorrelation}
+	
+	unfix NVT_equilibrium
+	
+	fix snapshot all store/state 0 x y z vx vy vz
+	
+	label map_loop
+    variable map_index loop   ${Nmappings}
+	
+	
+		########### Select mapping ###########
+	
+		variable map equal v_Maps[${map_index}]
+		
+		#fix 11 all print 1 "${map}" file coord.txt
+		
+		########### Load initial state ###########
+		
+		include ./load_state.lmp  
+
+
+		########### Apply mapping ###########		
+
+		include ./mappings.lmp        
+
+
+		########### Generate nonequilibrium trajectory ###########	
+		
+		include ./daughter.lmp  
+   
+
+    next map_index	
+    jump SELF map_loop
+	
+next daughter_index
+jump SELF daughter_loop
+

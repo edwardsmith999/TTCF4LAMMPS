@@ -1,0 +1,21 @@
+reset_timestep 0 
+change_box all  xy final 0
+
+########### Extract the output from fix store/state ###########
+
+variable px atom f_snapshot[1]
+variable py atom f_snapshot[2]
+variable pz atom f_snapshot[3]
+variable vx atom f_snapshot[4]
+variable vy atom f_snapshot[5]
+variable vz atom f_snapshot[6]
+
+
+########### Set the state to the one stored in the fix store/state ###########
+
+set             atom * x v_px 
+set             atom * y v_py 
+set             atom * z v_pz 
+set             atom * vx v_vx 
+set             atom * vy v_vy 
+set             atom * vz v_vz
