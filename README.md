@@ -289,7 +289,7 @@ CREATION OF LAMMPS OBJECT
 
 This operation associates a LAMMPS input file to a LAMMPS object.
 The file "System setup.in" contains only the declaration of the remaining parameters and the initialization of the system. The command line arguments are '-sc', 'none' (no video output),
-'-log', 'none' (no log file), '-var', 'rand_seed' , seed_v (the random seed to initialize the velocities, different for each processor). The last command sets the timestep for the integration of the equations of motion. The parameter is declared in the script, and appended to the LAMMPS object via lmp.command()
+'-log', 'none' (no log file), '-var', 'rand_seed' , seed_v (the random seed to initialize the velocities, different for each processor). The last command sets the timestep for the integration of the equations of motion. The parameter is declared in the script, and appended to the LAMMPS object via lmp.command(). IMPORTANT: if multiple, independent, single-core instances of this Python script are launched, then the random seed should be carefully chosen. Best method would be to read it from a file, where all the seeds required are stored.
       
 	args = ['-sc', 'none','-log', 'none','-var', 'rand_seed' , seed_v]
 	lmp = lammps(comm=MPI.COMM_SELF, cmdargs=args)
