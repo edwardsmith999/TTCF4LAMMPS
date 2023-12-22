@@ -1,4 +1,11 @@
+#!/usr/bin/python3
+import numpy as np
+from lammps import lammps
 from mpi4py import MPI
+
+from TTCF import utils
+from TTCF import TTCF
+
 #This code is run using MPI - each processes will
 #run this same bit code with its own memory
 comm = MPI.COMM_WORLD
@@ -7,13 +14,6 @@ nprocs = comm.Get_size()
 t1 = MPI.Wtime()
 root = 0
 print("Proc {:d} out of {:d} procs".format(irank+1,nprocs), flush=True)
-
-from lammps import lammps
-
-import numpy as np
-
-from TTCF import utils
-from TTCF import TTCF
 
 #Define lengths for all runs, number of Daughters, etc
 Tot_Daughters         = 1000
