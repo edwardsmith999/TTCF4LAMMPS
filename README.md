@@ -6,28 +6,40 @@ The code aims at creating a user-friendly interface to implement the Transient T
 Quickstart
 ----------
 
-The TTCF code is designed to run in LAMMPS. First, the Python interface for LAMMPS (https://docs.lammps.org/Python_module.html) must be installed. Installation instructions are provided on the LAMMPS page for Windows, Linux and Mac here: https://docs.lammps.org/Python_install.html.
+The quickest way to try out TTCF4LAMMPS is to download using the Python package manager,
 
-After installation, to check the Python LAMMPS interfaces works as expected, open Python and try to import the lammps module.
+    pip install TTCF4LAMMPS
+
+This is built on the unofficial Python packaged version of LAMMPS (https://pypi.org/project/lammps/), which uses mpich to provide parallisation and requires Python 3.7 or later.
+This will probably be fine for most users as it will be fairly up to date and should run with your own input files. However, if you are working on a supercomputer, have a version of LAMMPS already installed with Python bindings, or you have developed custom modules, then the Python interface for LAMMPS (https://docs.lammps.org/Python_module.html) can be installed manually. Installation instructions are provided on the LAMMPS page for Windows, Linux and Mac here: https://docs.lammps.org/Python_install.html.
+After installation by `pip` or manually, to check the Python LAMMPS interfaces works as expected, open Python and try to import the lammps module.
 
     python
 
     >>> import lammps
     >>> lmp = lammps.lammps()
-
-To use the TTCF, start by running the example case, first clone the repository,
+    
+Then, TTCF4LAMMPS is simply a package, so you can clone the repository,
 
     git clone https://github.com/edwardsmith999/TTCF.git
 
-next install the prerequisite,
+install any missing prerequisite from,
 
     mpi4py
     numpy
     matplotlib
-    
-then navigate to the TTCF folder and run,
 
-    cd TTCF
+and ensure you can import TTCF, either `sys.path.append` to include the path to the TTCF folder or running
+
+    python setup.py install
+    
+and check TTCF works with
+
+    from TTCF import TTCF
+    test = TTCF.TTCF(global_variables=[], profile_variables=['vx'], Nsteps=51, Nbins=100, Nmappings=4)
+
+To use the TTCF, start by running the example case, navigate to the TTCF folder (use `git clone https://github.com/edwardsmith999/TTCF.git TTCF` if you haven't already) and run,
+
     python run_TTCF.py
 
 For mpi4py, a version of MPI is required, either [mpich](https://www.mpich.org/) or [openMPI](https://www.open-mpi.org/) should work. This allows the code to run in parallel, which should speed up the example by as many cores as you run it on, for example if you have a 4 core CPU,
