@@ -85,15 +85,16 @@ The TTCF algorithm requires integration of the phase space average of the correl
 \langle B(t) \rangle =\langle B(0) \rangle+ \int_0^t \langle \Omega(0)B(s)\rangle ds 
 ```
 
-The average is performed over nonequilibrium trajectories initial conditions sampled from the equilibrium ensemble associated with the system. The easiest way to achieve this is to follow the system over an equilibrium *mother* trajectory. After a thermalization to ensure the system is in thermodynamic equilibrium, the state of the system (set of all positions and momenta) is periodically sampled. The procedure is shown is the figure below
+The average is performed over nonequilibrium trajectories initial conditions sampled from the equilibrium ensemble associated with the system. The easiest way to achieve this is to evolve the system over an equilibrium *mother* trajectory. After a thermalization to ensure the system is in thermodynamic equilibrium, the state of the system (set of all positions and momenta) is periodically sampled. The procedure is shown is the figure below
 
 ![alt text](https://github.com/edwardsmith999/TTCF/blob/master/figures/mother.png)
 
-After this process, a series of nonequilibrium *daughter* runs are perfomed, where their initial conditions are the states sampled from the equilibrium trajectories. 
+At each sample point on the mother, a series of nonequilibrium *daughter* runs are perfomed, where their initial conditions are the states sampled from the mother trajectories. 
 
 ![alt text](https://github.com/edwardsmith999/TTCF/blob/master/figures/children.png)
 
-From each initial state, three further mirrored states are generated (two in the figure). These further initial states guarantee that the phase average of the dissipation function is identically null and hence the convergence of the integral is ensured. The following mappings are used in this script
+In the figure, each initial state and a mirror is generated and run with an applied thermodynamic force (e.g. shared walls, SLLOD forcing, temperature gradient).
+In the example above, the original trajectory and three further mirrored states are generated. These 4 initial states guarantee that the phase average of the dissipation function is identically null and hence the convergence of the integral is ensured. The following mappings are used in this script
 
 ```math
 \bigl(x_i\;,\;y_i\;,\;z_i\;,\;p_{xi}\;,\;p_{yi}\;,\;p_{zi}\bigr)\longrightarrow\bigl(x_i\;,\;y_i\;,\;z_i\;,\;p_{xi}\;,\;p_{yi}\;,\;p_{zi}\bigr)\\
@@ -140,8 +141,8 @@ A compact TTCF implementation can be written within a single LAMMPS input file u
 	end Loop	
 
 
-The implementation can be found in the file LAMMPS_script.in. The file is equivalent to the python implemenetation which will be described later and can be directly used for MD simulations. However, it generates two output files for each daughter trajectory, making it impractical for realistic calculations. It is here used just as a reference to better understand the rationale behing the python interface. The entire TTCF calculation is here performed via a single run. The systems repeatedly switches between equilibrium (mother) and nonequilibrium (daughter) trajectory as shown in the abode pseudocode. Each block of commands is quite straightforward. However, the generation and loading the generation of the sample from the mother trajectory, and loading it need to be clarified.
-In order ot avoid writing/reading from files, the instantaneous state of the system is stored via the following command, which temporarily save the variables specified (positions and momenta) in the structure called snapshot
+The implementation can be found in the file LAMMPS_script.in. The file is equivalent to the python implemenetation which will be described later and can be directly used for MD simulations. However, it generates two output files for each daughter trajectory, making it impractical for realistic calculations. It is here used just as a reference to better understand the rationale behing the python interface. The entire TTCF calculation is here performed via a single run. The systems repeatedly switches between equilibrium (mother) and nonequilibrium (daughter) trajectory as shown in the above pseudocode. Each block of commands is quite straightforward. However, the generation and loading of the sample from the mother trajectory needs to be clarified.
+In order ot avoid writing/reading from files, the instantaneous state of the system is stored via the following command, which temporarily save the variables specified (positions and momenta) in the structure called a snapshot in LAMMPS. This is not written to disk but stored in an array in memory (RAM),
 
  		fix snapshot all store/state 0 x y z vx vy vz
 
@@ -174,7 +175,7 @@ Note that no info about the thermostat can be saved by the store/state command. 
  
 		read_restart snapshot.rst
 
-And each fix nvt command should have the same ID throughout the whole run, bot for the mother and the daughter trajectory.
+And each fix nvt command should have the same ID throughout the whole run, both for the mother and the daughter trajectory.
 The second point which needs clarification is the mapping procedure. It  works is the following way: in order to keep a general algorithm, each single dimension can be independenlty mirrored. There are 6 total dimensions, namely x,vx,y,vy,z,vz. Thus, a mapping can be identified by a set of six digits, each of which can be either 0 (no reflection) or 1 (reflection). For instance, the sequence 101100 identifies the following mapping
 
 	(101100) = (-x , vx , -y , -vy , z , vz )
@@ -186,26 +187,9 @@ There are a total of 2^6 independent mappings and the string corresponding to th
   	( -x , -vx , y ,  vy , z ,  vz ) = 110000 = 48 (x-reflection)
   	( -x ,  vx , y , -vy , z , -vz ) = 100101 = 37 (time reversal + x-reflection)
 
-and the mapping is applied by the following commands
+and the mapping is applied in LAMMPS by the following commands
 
 	########### Mapping application ###########
- 
-		#variable map equal to a number from 0 to 63
-  
-		variable mpx equal     floor((${map})/(2^5))
-		variable mvy equal     floor((${map}-(${mpx}*2^5))/(2^4))
-		variable mpy equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4))/(2^3))
-		variable mvy equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4)-(${mpz}*2^3))/(2^2))
-		variable mpz equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4)-(${mpz}*2^3)-(${mvx}*2^2))/(2^1))
-		variable mvz equal     floor((${map}-(${mpx}*2^5)-(${mpy}*2^4)-(${mpz}*2^3)-(${mvx}*2^2)-(${mvy}*2^1))/(2^0))
-
-		variable        px atom x+((xhi-2*x)*${mpx})
-		variable        py atom y+((yhi-2*y)*${mpy})
-		variable        pz atom z+((zhi-2*z)*${mpz})
-		variable        vx atom vx-(2*vx*${mvx})
-		variable        vy atom vy-(2*vy*${mvy})
-		variable        vz atom vz-(2*vz*${mvz})
-
 		set             atom * x  v_px 
 		set             atom * y  v_py 
 		set             atom * z  v_pz 
@@ -213,7 +197,7 @@ and the mapping is applied by the following commands
 		set             atom * vy v_vy 
 		set             atom * vz v_vz
 
-where the first block of commands traslates back a decimal number into its binary representation and selects each separate digit, the second block calculates the corresponding reflected dcoordinate (1 inverts sign, 0 leaves unchanged), and the third block updates the positions and momenta.
+which updates the positions and momenta.
 
 The proposed examples produces both a profile quantity (associated to a specific point of the system) and global quantity (associated to the enire system), in order to provide a general scheme for TTCF caluclation. The profile variable is the velocity, whereas the global variables are the shear pressure and the dissipation function, respectively. In this script, the dissipation function must always be the last variable listed on the fin ave/time command. For the SLLOD equation, we have
 ```math
@@ -221,11 +205,13 @@ The proposed examples produces both a profile quantity (associated to a specific
 ```
 Note that the dissipation function at t=0 can be computed either from the mother or from the daughter trajectory. However, the LAMMPS implementation of the SLLOD algorithm contains various errors which result in a mismatch between the two calculations. However, the errors have minor effects of the final outcome. For simplicity, in the dissipation function is here monitored over the entire daughter trajectory. 
 The same setup can be used with different systems, provided the various parameters, the dynamics, and the dissipation function are properly modified.
+
+
 The Python interface described here aims at managing the entire LAMMPS simulation without the need to any output file for each nonequilibrium run. Since TTCF calculation requires thousands, or up to million nonequilibrium runs, the file management can become cumbersome and substantially decrease the performaces in HPC clusters.
 The script uses the python LAMMPS interface (https://docs.lammps.org/Python_head.html), which allows to manage the LAMMPS run from python directly. As such, the otuput produced by the fix ave/time and fix ave/chuck commands are not written on file, but taken as input by Python.
 The Python script run_TTCF.py is structured as follows:
 
-SPLIT THE SIMULATION INTO N SINGLE-CORE RUNS (N # OF CORES SELECTED) 
+HOW THE PARALLELISM WORKS - SPLIT THE SIMULATION INTO N SINGLE-CORE RUNS (N # OF CORES SELECTED) 
 ------
 Each core is assigned to a LAMMPS run. of N cores, N independent mother trajectories are generated, as well as the releted daughter trajectories.
 
@@ -274,7 +260,7 @@ If needed, these parameters will be passed to LAMMPS via proper functions.
 	Thermo_damp = 10*dt
 
 
-The dynamics of the nonequilibrium daughter trajectory is then declared. The user should translate each LAMMPS command into a string which is then appendend to the block. The order identical to that of a LAMMPS script. The blocks are respectively: definition of the dynamics (apply ext. field, set dynamics), definition and caluclation of profile variables, definition and caluclation of global variables (including the dissipation function, which must be the last output quantity listed in the related command)
+The dynamics of the nonequilibrium daughter trajectory is then declared. The user should translate each LAMMPS command into a string which is then appendend to the block. The order appended to the Python list must be identical to that of a LAMMPS script. The blocks are respectively: definition of the dynamics (apply ext. field, set dynamics), definition and caluclation of profile variables, definition and caluclation of global variables (including the dissipation function, which must be the last output quantity listed in the related command)
 
 	setlist = []
 
@@ -300,8 +286,7 @@ CREATION OF LAMMPS OBJECT
 
 
 This operation associates a LAMMPS input file to a LAMMPS object.
-The file "System setup.in" contains only the declaration of the remaining parameters and the initialization of the system. The command line arguments are '-sc', 'none' (no video output),
-'-log', 'none' (no log file), '-var', 'rand_seed' , seed_v (the random seed to initialize the velocities, different for each processor). The last command sets the timestep for the integration of the equations of motion. The parameter is declared in the script, and appended to the LAMMPS object via lmp.command(). IMPORTANT: if multiple, independent, single-core instances of this Python script are launched, then the random seed should be carefully chosen. Best method would be to read it from a file, where all the seeds required are stored.
+The file "System setup.in" contains only the declaration of the remaining parameters and the initialization of the system. The command line arguments are '-sc', 'none' (no standard output to terminal), '-log', 'none' (no log file), '-var', 'rand_seed' , seed_v (the random seed to initialize the velocities, different for each processor). The last command sets the timestep for the integration of the equations of motion. The parameter is declared in the script, and appended to the LAMMPS object via lmp.command(). IMPORTANT: if multiple, independent, single-core instances of this Python script are launched, then the random seed should be carefully chosen. Best method would be to read it from a file, where all the seeds required are stored.
       
 	args = ['-sc', 'none','-log', 'none','-var', 'rand_seed' , seed_v]
 	lmp = lammps(comm=MPI.COMM_SELF, cmdargs=args)
