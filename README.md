@@ -85,11 +85,11 @@ The TTCF algorithm requires integration of the phase space average of the correl
 \langle B(t) \rangle =\langle B(0) \rangle+ \int_0^t \langle \Omega(0)B(s)\rangle ds 
 ```
 
-The average is performed over nonequilibrium trajectories initial conditions sampled from the equilibrium ensemble associated with the system. The easiest way to achieve this is to follow the system over an equilibrium \textit{mother} trajectory. After a thermalization to ensure the system is in thermodynamic equilibrium, the state of the system (set of all positions and momenta) is periodically sampled. The procedure is shown is the figure below
+The average is performed over nonequilibrium trajectories initial conditions sampled from the equilibrium ensemble associated with the system. The easiest way to achieve this is to follow the system over an equilibrium *mother* trajectory. After a thermalization to ensure the system is in thermodynamic equilibrium, the state of the system (set of all positions and momenta) is periodically sampled. The procedure is shown is the figure below
 
 ![alt text](https://github.com/edwardsmith999/TTCF/blob/master/figures/mother.png)
 
-After this process, a series of nonequilibrium \textit{daughter} runs are perfomed, where their initial conditions are the states sampled from the equilibrium trajectories. 
+After this process, a series of nonequilibrium *daughter* runs are perfomed, where their initial conditions are the states sampled from the equilibrium trajectories. 
 
 ![alt text](https://github.com/edwardsmith999/TTCF/blob/master/figures/children.png)
 
