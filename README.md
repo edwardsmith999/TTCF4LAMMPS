@@ -3,11 +3,15 @@ Transient Time Correlation Function (TTCF) [![CI](https://github.com/edwardsmith
 
 The code provides a user-friendly interface to implement the Transient Time Correlation Function (TTCF) method in the [LAMMPS](https://www.lammps.org/). This provides better signal-to-noise ratios from non-equilibrium molecular dynamics (NEMD) simulations where the forcing is very weak. For example, the low shear rates used in tribology or rheology experiments or the small pressure gradients driving flow in fluid dynamics experiments, which are innaccesible to standard NEMD simulations. TTCF is a generalisation of the popular Green-Kubo method for systems driven out of equilbrium.
 
-Citiation
+Citiations
 ----------
 
-Please cite our arXiv preprint if you this code for your own research:
-L. Maffioli, J. P. Ewen, E. R. Smith, S. Varghese, P. J. Daivis, D. Dini, and B. D. Todd. TTCF4LAMMPS: A toolkit for simulation of the non-equilibrium behaviour of molecular fluids at experimentally accessible shear rates. 2023. https://doi.org/10.48550/arXiv.2312.02990
+Please cite the folloiwng if you use any of this code for your own research:
+[1] L. Maffioli, J. P. Ewen, E. R. Smith, S. Varghese, P. J. Daivis, D. Dini, and B. D. Todd. TTCF4LAMMPS: A toolkit for simulation of the non-equilibrium behaviour of molecular fluids at experimentally accessible shear rates. ArXiv Preprint (2023). https://doi.org/10.48550/arXiv.2312.02990
+If you use/modify the confined system example, or use TTCF to measure slip lengths or for barostatted systems at constant pressure, please also cite:
+[2] L. Maffioli, E. R. Smith, J. P. Ewen, P. J. Daivis, D. Dini and B. D. Todd. Slip and Stress From Low Strain-Rate Nonequilibrium Molecular Dynamics: The Transient-Time Correlation Function Technique. The Journal of Chemical Physics 156, 184111 (2022). https://doi.org/10.1063/5.0088127
+If you use/modify the bulk system example, please also cite:
+[3] I. Borzsak, P. T. Cummings, D. J. Evans. Shear viscosity of a simple fluid over a wide range of strain rates. Molecular Physics, 100, 2735-2738 (2002). https://doi.org/10.1080/00268970210137275
 
 Quickstart
 ----------
