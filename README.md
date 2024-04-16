@@ -7,7 +7,7 @@ Citiations
 ----------
 
 Please cite the following if you use this code for your own research: 
-1. L. Maffioli, J. P. Ewen, E. R. Smith, S. Varghese, P. J. Daivis, D. Dini, and B. D. Todd. TTCF4LAMMPS: A toolkit for simulation of the non-equilibrium behaviour of molecular fluids at experimentally accessible shear rates. ArXiv Preprint (2023). https://doi.org/10.48550/arXiv.2312.02990
+1. L. Maffioli, J. P. Ewen, E. R. Smith, S. Varghese, P. J. Daivis, D. Dini, and B. D. Todd. TTCF4LAMMPS: A toolkit for simulation of the non-equilibrium behaviour of molecular fluids at experimentally accessible shear rates. Computer Physics Communications 109205 (2024). https://doi.org/10.1016/j.cpc.2024.109205
 2. L. Maffioli, E. R. Smith, J. P. Ewen, P. J. Daivis, D. Dini and B. D. Todd. Slip and Stress From Low Strain-Rate Nonequilibrium Molecular Dynamics: The Transient-Time Correlation Function Technique. The Journal of Chemical Physics 156, 184111 (2022). https://doi.org/10.1063/5.0088127 - if you use/modify the confined system example, or use TTCF to measure slip lengths or for barostatted systems at constant pressure
 3. I. Borzsak, P. T. Cummings, D. J. Evans. Shear viscosity of a simple fluid over a wide range of strain rates. Molecular Physics, 100, 2735-2738 (2002). https://doi.org/10.1080/00268970210137275 - if you use/modify the bulk system example.
 
