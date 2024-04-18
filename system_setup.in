@@ -12,6 +12,8 @@ variable rc equal 2^(1/6)                               #Interaction radius for 
 variable k_B equal 1
 variable srate equal 0.000001
 
+if "${use_gpu} == 1" then "package gpu 1 newton off neigh yes device_type nvidiagpu"
+
 lattice         fcc ${rho}
 region          simbox prism 0 ${L} 0 ${L} 0 ${L} 0 0 0 units box
 create_box      1 simbox 
@@ -20,7 +22,7 @@ create_atoms    1 region simbox
 group           fluid region simbox
 
 mass            * 1.0
-pair_style      lj/cut ${rc}
+if "${use_gpu} == 1" then "pair_style      lj/cut/gpu ${rc}" else "pair_style      lj/cut ${rc}"
 
 pair_coeff       1 1 1.0 1.0
 
