@@ -314,10 +314,10 @@ This block appends to the existing LAMMPS object (loaded from system_setup.in) t
 	def  run_mother_trajectory(lmp,Nsteps_Decorrelation,Thermo_damp):
 
 		lmp.command("fix NVT_equilibrium all nvt temp ${T} ${T} " +  str(Thermo_damp) + " tchain 1")
-    		lmp.command("run " + str(Nsteps_Decorrelation))
-   		lmp.command("unfix NVT_equilibrium")
+		lmp.command("run " + str(Nsteps_Decorrelation))
+		lmp.command("unfix NVT_equilibrium")
 
-   		return None
+		return None
      
 At the end of the equilibrium run, the state of the system is saved via the following
 
@@ -344,18 +344,18 @@ The script loop over the number of daughter trajectories (excluding the mappings
     
     		cmdstr = "change_box all  xy final 0\n"
     		for i, s in enumerate(state['save_variables']):
-       		varname = "p"+s 
-       	 	cmdstr += "variable " + varname + " atom f_"+state['name']+"["+str(i+1)+"]\n"
-        	cmdstr += "set             atom * " + s + " v_"+varname+"\n"
+    			varname = "p"+s 
+    			cmdstr += "variable " + varname + " atom f_"+state['name']+"["+str(i+1)+"]\n"
+    			cmdstr += "set             atom * " + s + " v_"+varname+"\n"
 
     		for line in cmdstr.split("\n"):
-        		lmp.command(line)
+    			lmp.command(line)
     		return None
 
 and the equilibrium run is carried on, until the system is fully decorrelated from the last saved state, after which a new state owerwrite the exisiting saved one.
 
 	run_mother_trajectory(lmp,Nsteps_Decorrelation,Thermo_damp)
-   	state = save_state(lmp, "snapshot")
+	state = save_state(lmp, "snapshot")
 
 LOOP OVER THE MAPPINGS
 ------
@@ -363,35 +363,28 @@ LOOP OVER THE MAPPINGS
 Each step repesent a single mapped daughter trajectory. The last generated sample is first loaded, and then modified accordingly to the current mapping. The conversion from deciaml number to six-digits binary string is performed direcly by Python, unlike in the LAMMPS script example.
 
 	load_state(lmp, state)
- 	apply_mapping(lmp, Maps[Nm])
+	apply_mapping(lmp, Maps[Nm])
 
-  	def apply_mapping(lmp, map_index):
+	def apply_mapping(lmp, map_index):
 
-    		map_list=["x","y","z"]
-    		N=len(map_list)
+		map_list=["x","y","z"]
+		N=len(map_list)
     
-    		ind=map_index
+		ind=map_index
      
-    		cmdstr=""
-    		for i in range(N):
+		cmdstr=""
+		for i in range(N):
 
-       		mp = ind % 2
-       		ind = np.floor(ind/2)
+			mp = ind % 2
+			ind = np.floor(ind/2)
     
-        	cmdstr += "variable map atom  v"+map_list[N-1-i]+"-(2*v"+map_list[N-1-i]+"*"+str(mp)+")\n"
-        	cmdstr += "set atom * v"+map_list[N-1-i]+" v_map\n"
+			cmdstr += "variable map atom  v"+map_list[N-1-i]+"-(2*v"+map_list[N-1-i]+"*"+str(mp)+")\n"
+			cmdstr += "set atom * v"+map_list[N-1-i]+" v_map\n"
 
+		for line in cmdstr.split("\n"):
+			lmp.command(line)
 
-       	 	mp=ind % 2
-        	ind = np.floor(ind/2)
-
-        	cmdstr += "variable map atom  "+map_list[N-1-i]+"+(("+map_list[N-1-i]+"hi-2*"+map_list[N-1-i]+")*"+str(mp)+")\n"
-        	cmdstr += "set atom * "+map_list[N-1-i]+" v_map\n"
-
-    		for line in cmdstr.split("\n"):
-        		lmp.command(line)
-
-    		return None
+		return None
 	 
 
 
