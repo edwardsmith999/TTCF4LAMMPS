@@ -26,12 +26,20 @@ Nbins                 = 100
 dt                    = 0.0025
 showplots             = True
 
+#Set the the GPU forcde calculation (1 GPU calculation, 0 no use of GPU).
+#IMPORTANT: THE GPU PACKAGE REQUIRES ONE TO INSERT THE SPECIFIC GPU MODEL. PLEASE EDIT THE COMMAND ACCORDINGLY.
+Use_GPU = 0
+
 #Derived quantities
 Nmappings=len(Maps)
 Ndaughters=int(np.ceil(Tot_Daughters/nprocs))
 Nsteps=int(Nsteps_Daughter/Delay)+1
 Bin_Width=1.0/float(Nbins)
 Thermo_damp = 10*dt
+
+if Ndaughters<3:
+    print("Number of daughter trajectories must be larger than 2")
+    comm.Abort()
 
 # Here we can define all variables, computes and fixs in lammps 
 #format that we want to set for each daughter
@@ -74,7 +82,7 @@ else:
     seed_v = str(int(np.random.randint(1, 1e5 + 1)))
 
 #Define LAMMPS object and initialise
-args = ['-sc', 'none','-log', 'none','-var', 'rand_seed' , seed_v]
+args = ['-sc', 'none','-log', 'none','-var', 'rand_seed' , seed_v ,'-var', 'use_gpu', str(Use_GPU) ]
 lmp = lammps(comm=MPI.COMM_SELF, cmdargs=args)
 
 #Run equilibration  
