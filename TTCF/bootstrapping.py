@@ -1,3 +1,4 @@
+import os.path
 import numpy as np
 import warnings
 import os
@@ -21,6 +22,14 @@ class Bootstrap():
             nGroups: number of groups in which trajectories results will be pre-averaged
             nTimesteps: number of timesteps performed for every daughter
             intervalPercentage: confidence interval, default is 95%
+
+            Limitations
+            It is possible to group the trajctories in chuncks, called groups,
+            to make less intensive the resample step.
+            The current implementation works only if I calculate the mean and
+            its confidence interval, if we want to evaluate the standard
+            deviation of the original distribution we need to impose nGroups
+            equal to nTrajectories.
         '''
 
         self.variable = variable.replace('[', '')
@@ -30,12 +39,12 @@ class Bootstrap():
         self.nGroups = nGroups
         self.nTimesteps = nTimesteps + 1
         self.intervalPercentage = intervalPercentage
-        self.directory = os.getcwd() + '/' + str(variable) + '_global'
+        self.directory = os.getcwd() + '/' + str(self.variable) + '_global'
         self.variable_OB = []
         self.variable_O = []
         self.variable_B = []
         self.averageBt = []
-
+        self.stdFlag = False
 
         if self.nTrajectories % self.nGroups != 0:
             raise Exception('The number of trajectories must be a multiple of the number of groups')
@@ -45,22 +54,33 @@ class Bootstrap():
             exponent -= 1
             precision *= 10
         if ((5 * 10**exponent) * nResamples) % 100 != 0:
-            warnings.warn('It would be better to use a number of resamples that is a mutiple of {}'.format(int(100/(5 * 10**exponent))))
+            warnings.warn('A number of resamples per processor that is a mutiple of {} should be used'.format(int(100/(5 * 10**exponent))))
 
 
     def concatenateTrajectories(self):
+        """
+            Function used to concatenate the results written on different files
+            by different processes, in single a single file per variable of the
+            TTCF equation.
+        """
         for i in ['OB', 'O', 'B']:
             outFilename = self.directory + '/' + str(self.variable) + '_' + i +'_global.txt'
             inFilenames = glob.glob(self.directory + '/' + str(self.variable) + '_' + i + '_*.dat')
-            with open(outFilename, 'w+') as outF:
-                for filename in inFilenames:
-                    with open(filename, 'r') as inF:
-                        shutil.copyfileobj(inF, outF)
-                    os.remove(filename)
+            if os.path.isfile(outFilename):
+                # warnings.warn('File {} already exists, skipping concatenation'.format(outFilename))
+                print('File {} already exists, skipping concatenation'.format(outFilename))
+            else:
+                with open(outFilename, 'w+') as outF:
+                    for filename in inFilenames:
+                        with open(filename, 'r') as inF:
+                            shutil.copyfileobj(inF, outF)
+                        os.remove(filename)
 
 
     def readTrajectories(self):
-        filenames = [self. directory + '/' + self.variable + '_OB_global.txt', self. directory + '/' + self.variable + '_O_global.txt', self. directory + '/' + self.variable + '_B_global.txt']
+        filenames = [self. directory + '/' + self.variable + '_OB_global.txt',
+                     self. directory + '/' + self.variable + '_O_global.txt',
+                     self. directory + '/' + self.variable + '_B_global.txt']
         arrays = [[], [], []]
         for i in range(len(filenames)):
             with open(filenames[i]) as f:
@@ -71,97 +91,181 @@ class Bootstrap():
         self.variable_OB = np.array(arrays[0])
         self.variable_O = np.array(arrays[1])
         self.variable_B = np.array(arrays[2])
-        print(self.variable_OB.shape)
-        print(self.variable_O.shape)
-        print(self.variable_B.shape)
 
 
     def groupTrajectories(self):
+        """
+            The function groups the trajctories in chuncks, called groups, to
+            make less intensive the resample step.
+            The current implementation works only if I calculate the mean and
+            its confidence interval, if we want to evaluate the standard
+            deviation of the original distribution we need to impose nGroups
+            equal to nTrajectories.
+
+            The arrays in output have shape
+            (nGroups, nTimesteps, nTrajectories per group).
+        """
         self.variable_OB = self.variable_OB.reshape((self.nGroups, int(self.nTrajectories/self.nGroups), self.nTimesteps))
         self.variable_O = self.variable_O.reshape((self.nGroups, int(self.nTrajectories/self.nGroups), self.nTimesteps))
         self.variable_B = self.variable_B.reshape((self.nGroups, int(self.nTrajectories/self.nGroups), self.nTimesteps))
         self.variable_OB = self.variable_OB.transpose((0, 2, 1))
         self.variable_O = self.variable_O.transpose((0, 2, 1))
         self.variable_B = self.variable_B.transpose((0, 2, 1))
-        print(self.variable_OB.shape)
-        print(self.variable_O.shape)
-        print(self.variable_B.shape)
 
 
     def averageWithin(self):
+        """
+            The function takes the previous arrays and overages on
+            the trajctories in every group.
+
+            The arrays in output have shape (nGroups, nTimesteps).
+        """
         self.variable_OB = np.mean(self.variable_OB, axis=-1)
         self.variable_O = np.mean(self.variable_O, axis=-1)
         self.variable_B = np.mean(self.variable_B, axis=-1)
-        print(self.variable_OB.shape)
-        print(self.variable_O.shape)
-        print(self.variable_B.shape)
 
 
-    # def resampleAvergeBetween(self):
-    #     arrayShape = list(self.variable_OB.shape)
-    #     arrayShape.insert(0, self.nResamples)
-    #     arrayShape = tuple(arrayShape)
-    #     batches = np.zeros(arrayShape)
-    #     for i in range(self.nResamples):
-    #         newSample = np.random.randint(arrayShape[1], size=(arrayShape[1]))
-    #         batches[i] = self.variable_OB[newSample, :]
-    #     self.variable_OB = np.mean(batches, axis=-2).T
-    #     for i in range(self.nResamples):
-    #         newSample = np.random.randint(arrayShape[1], size=(arrayShape[1]))
-    #         batches[i] = self.variable_O[newSample, :]
-    #     self.variable_O = np.mean(batches, axis=-2).T
-    #     for i in range(self.nResamples):
-    #         newSample = np.random.randint(arrayShape[1], size=(arrayShape[1]))
-    #         batches[i] = self.variable_B[newSample, :]
-    #     self.variable_B = np.mean(batches, axis=-2).T
-
-
-    def resampleAvergeBetween(self):
-        arrayShape = self.variable_OB.shape
-        batches = np.zeros((self.nResamples, arrayShape[1]))
+    def resampleAvergeBetweenForMean(self):
+        """
+            This function performs the resampling with replacement, classic of
+            the bootstrapping technique.
+            The purpose is to calculate and store the mean of every resample.
+            
+            The arrays in output have shape (nTimesteps, nResamples).
+        """
+        batches = np.zeros((self.nResamples, self.nTimesteps))
         for i in range(self.nResamples):
-            newSample = np.random.randint(arrayShape[0], size=(arrayShape[0]))
+            newSample = np.random.randint(self.nGroups, size=(self.nGroups))
             batches[i] = np.mean(self.variable_OB[newSample, :], axis=0)
-        self.variable_OB = batches.T
-        batches = np.zeros((self.nResamples, arrayShape[1]))
+        self.variable_OB_mean= batches.T
+        batches = np.zeros((self.nResamples, self.nTimesteps))
         for i in range(self.nResamples):
-            newSample = np.random.randint(arrayShape[0], size=(arrayShape[0]))
+            newSample = np.random.randint(self.nGroups, size=(self.nGroups))
             batches[i] = np.mean(self.variable_O[newSample, :], axis=0)
-        self.variable_O = batches.T
-        batches = np.zeros((self.nResamples, arrayShape[1]))
+        self.variable_O_mean= batches.T
+        batches = np.zeros((self.nResamples, self.nTimesteps))
         for i in range(self.nResamples):
-            newSample = np.random.randint(arrayShape[0], size=(arrayShape[0]))
+            newSample = np.random.randint(self.nGroups, size=(self.nGroups))
             batches[i] = np.mean(self.variable_B[newSample, :], axis=0)
-        self.variable_B = batches.T
-        print(self.variable_OB.shape)
-        print(self.variable_O.shape)
-        print(self.variable_B.shape)
+        self.variable_B_mean = batches.T
 
 
-    # def averageBetween(self, batches):
-    #     return np.mean(batches, axis=-2).T
+    def resampleAvergeBetweenForStd(self):
+        """
+            This function performs the resampling with replacement, classic of
+            the bootstrapping technique.
+            The purpose is to calculate and store the standard deviation of
+            every resample.
+            
+            The arrays in output have shape (nTimesteps, nResamples).
+        """
+        self.stdFlag = True
+        batches = np.zeros((self.nResamples, self.nTimesteps))
+        for i in range(self.nResamples):
+            newSample = np.random.randint(self.nGroups, size=(self.nGroups))
+            batches[i] = np.std(self.variable_OB[newSample, :], axis=0)
+        self.variable_OB_std = batches.T
+        batches = np.zeros((self.nResamples, self.nTimesteps))
+        for i in range(self.nResamples):
+            newSample = np.random.randint(self.nGroups, size=(self.nGroups))
+            batches[i] = np.std(self.variable_O[newSample, :], axis=0)
+        self.variable_O_std = batches.T
+        batches = np.zeros((self.nResamples, self.nTimesteps))
+        for i in range(self.nResamples):
+            newSample = np.random.randint(self.nGroups, size=(self.nGroups))
+            batches[i] = np.std(self.variable_B[newSample, :], axis=0)
+        self.variable_B_std = batches.T
+
+
+    def sumOriginalTrj(self):
+        self.averageBt = self.variable_OB - self.variable_O*self.variable_B
 
 
     def sumIntegrals(self):
-        self.averageBt = self.variable_OB - self.variable_O*self.variable_B
-        print(self.averageBt)
+        self.averageBtMean = self.variable_OB_mean - self.variable_O_mean*self.variable_B_mean
+        if self.stdFlag:
+            self.averageBtStd = self.variable_OB_std - self.variable_O_std*self.variable_B_std
 
+    def gather_over_MPI(self, comm, root=0):
+        """
+            Function used to gather from different MPI processes the results of
+            the resampling procedure.
+            Since we are gathering numpy arrays a send and a received buffer
+            must be used.
+            In addition, the array to be sent must be stored as contiguous.
+
+            The gathered array are reshaped in order to have shape
+            (nTimesteps, nResamples*nProcesses)
+        """
+        self.recvMean = None
+        self.recvStd = None
+        self.sendMean = np.ascontiguousarray(self.averageBtMean)
+        self.sendStd = np.ascontiguousarray(self.averageBtStd)
+        if comm.Get_rank() == 0:
+            recvSize = [comm.Get_size()] + [self.averageBtMean.shape[i] for i in range(len(self.averageBtMean.shape))]
+            self.recvMean = np.empty(recvSize, dtype=self.sendMean.dtype)
+            self.recvStd = np.empty(recvSize, dtype=self.sendStd.dtype)
+        comm.Gather(self.sendMean, self.recvMean, root=root)
+        comm.Gather(self.sendStd, self.recvStd, root=root)
+        if comm.Get_rank() == 0:
+            self.averageBtMean = self.recvMean
+            self.averageBtStd = self.recvStd
+            self.averageBtMean = self.recvMean
+            self.averageBtStd = self.recvStd
+            self.averageBtMean = self.averageBtMean.transpose((1, 0, 2))
+            self.averageBtMean = self.averageBtMean.reshape((self.nTimesteps, self.averageBtMean.shape[1]*self.averageBtMean.shape[2]))
+            self.averageBtStd = self.averageBtStd.transpose((1, 0, 2))
+            self.averageBtStd = self.averageBtStd.reshape((self.nTimesteps, self.averageBtStd.shape[1]*self.averageBtStd.shape[2]))
 
     def confidenceInterval(self):
-        lowPercentile = int((100-self.intervalPercentage)/2*self.nResamples/100)
-        highPercentile = int((100+self.intervalPercentage)/2*self.nResamples/100)
+        """
+            Function used to compute and write to file the confidence interval
+            of the mean from the resampling process.
+        """
+        lowPercentile = int((100-self.intervalPercentage)/2*self.averageBtMean.shape[1]/100)
+        highPercentile = int((100+self.intervalPercentage)/2*self.averageBtMean.shape[1]/100)
         confInterval = np.zeros((self.nTimesteps, 2))
-        for i in range(len(self.averageBt)):
-            sortedArray = np.sort(self.averageBt[i])
+        for i in range(len(self.averageBtMean)):
+            sortedArray = np.sort(self.averageBtMean[i])
             confInterval[i][0] = sortedArray[lowPercentile]
             confInterval[i][1] = sortedArray[highPercentile]
         np.savetxt(self.directory + '/' + self.variable + '_ci.txt', confInterval)
 
 
+    def meanForComparison(self):
+        """
+            Function used to compute and write to file the mean and the
+            standard deviation of the mean distribution, i.e. the standard
+            error from the resampling process.
+
+            Note: that there is no need to compute the mean in this way, since
+            the TTCF already compute the correct mean, so this function is used
+            as sanity check.
+        """
+        meanBt = np.mean(self.averageBtMean, axis=1)
+        seBt = np.std(self.averageBtMean, axis=1)
+        np.savetxt(self.directory + '/' + self.variable + '_mean.txt', meanBt)
+        np.savetxt(self.directory + '/' + self.variable + '_meanStd.txt', seBt)
+
+
+    def standardDeviation(self, identifier):
+        """
+            Function used to compute the standard deviation of the original
+            distribution from the resampling process.
+        """
+        stdBt = np.mean(self.averageBtStd, axis=1)
+        np.savetxt(self.directory + '/' + self.variable + '_std_' + identifier + '.txt', stdBt)
+
+
     def plotDistribution(self, timestep=-1, format='png'):
-        sortedArray = np.sort(self.averageBt[timestep])
-        lowPercentile = int((100-self.intervalPercentage)/2*self.nResamples/100)
-        highPercentile = int((100+self.intervalPercentage)/2*self.nResamples/100)
+        """
+            Function used to plot the distribution of the mean from the
+            resampling process for a specific timestep.
+            The default is the last timestep.
+        """
+        sortedArray = np.sort(self.averageBtMean[timestep])
+        lowPercentile = int((100-self.intervalPercentage)/2*len(sortedArray)/100)
+        highPercentile = int((100+self.intervalPercentage)/2*len(sortedArray)/100)
         confIntLow = sortedArray[lowPercentile]
         confIntHigh = sortedArray[highPercentile]
         centimeters = 1/2.54
@@ -170,8 +274,8 @@ class Bootstrap():
         ax = fig.add_subplot(gs[0, 0])
         ax.set_xlabel(r'$\langle B\rangle$')
         ax.set_ylabel(r'Count')
-        ax.hist(self.averageBt[timestep], bins=100, color='tomato', alpha=.5)
-        ax.vlines(np.mean(self.averageBt[timestep]), ymin=0, ymax=self.nResamples*3.5e-2, colors='tomato', label='Mean')
+        ax.hist(self.averageBtMean[timestep], bins=100, color='tomato', alpha=.5)
+        ax.vlines(np.mean(self.averageBtMean[timestep]), ymin=0, ymax=self.nResamples*3.5e-2, colors='tomato', label='Mean')
         ax.vlines([confIntLow, confIntHigh], ymin=0, ymax=self.nResamples*3.5e-2, colors='deepskyblue', label='95% Confidence interval')
         ax.legend()
         fig.savefig(self.directory + '/' + self.variable + '_averageDistribution.'+ format, dpi=300)
