@@ -28,10 +28,11 @@ dt                    = 0.0025
 showplots             = False
 
 # Define parameters for bootstrapping
-nResamples = 20000
-nGroups = 50
+totResamples = 10000
+nResamples = int(np.ceil(totResamples/nproc))
+nGroups = nResamples
 
-#Set the the GPU forcde calculation (1 GPU calculation, 0 no use of GPU).
+#Set the the GPU force calculation (1 GPU calculation, 0 no use of GPU).
 #IMPORTANT: THE GPU PACKAGE REQUIRES ONE TO INSERT THE SPECIFIC GPU MODEL. PLEASE EDIT THE COMMAND ACCORDINGLY.
 Use_GPU = 0
 
@@ -99,7 +100,9 @@ utils.run_mother_trajectory(lmp,Nsteps_Thermalization,Thermo_damp)
 #Save snapshot to use for daughters
 state = utils.save_state(lmp, "snapshot")
 
+# Create directories to save global variables for all trajectories
 ttcf.createDirectories(irank)
+comm.Barrier() # Maybe to remove
 
 #Loop over all sets of daughters
 for Nd in range(Ndaughters):
@@ -164,24 +167,45 @@ if showplots:
 ttcf.save_data()
 
 comm.Barrier()
+
+t3 = MPI.Wtime()
+
 if irank == root:
     for i in range(len(global_variables)):
         bts = Bts.Bootstrap(global_variables[i], nResamples, Tot_Daughters, nGroups, Nsteps_Daughter)
         bts.concatenateTrajectories()
         print('{}: Trajectories concatenated'.format(global_variables[i]))
-        bts.readTrajectories()
-        print('{}: Trajectories read'.format(global_variables[i]))
-        bts.groupTrajectories()
-        print('{}: Trajectories grouped'.format(global_variables[i]))
-        bts.averageWithin()
-        print('{}: Trajectories averaged within'.format(global_variables[i]))
-        bts.resampleAvergeBetween()
-        print('{}: Trajectories resampled and averaged between'.format(global_variables[i]))
-        bts.sumIntegrals()
-        print('{}: B(t) created'.format(global_variables[i]))
+
+for i in range(len(global_variables)):
+    bts = Bts.Bootstrap(global_variables[i], nResamples, Tot_Daughters, nGroups, Nsteps_Daughter)
+    bts.readTrajectories()
+    print('Proc {}, {}: Trajectories read'.format(irank+1, global_variables[i]))
+    bts.groupTrajectories()
+    print('Proc {}, {}: Trajectories grouped'.format(irank+1, global_variables[i]))
+    bts.averageWithin()
+    print('Proc {}, {}: Trajectories averaged within'.format(irank+1, global_variables[i]))
+    bts.resampleAvergeBetweenForMean()
+    print('Proc {}, {}: Trajectories resampled and averaged between for the mean'.format(irank+1, global_variables[i]))
+    bts.resampleAvergeBetweenForStd()
+    print('Proc {}, {}: Trajectories resampled and averaged between for the standard deviation'.format(irank+1, global_variables[i]))
+    bts.sumIntegrals()
+    print('Proc {}, {}: B(t) mean and standard deviation created'.format(irank+1, global_variables[i]))
+
+    comm.Barrier()
+ 
+    bts.gather_over_MPI(comm)
+    print('{}: mean and stardard deviation gathered by root'.format(global_variables[i]))
+    if irank == root:
+        bts.meanForComparison()
+        print('{}: Mean and its standard deviation computed'.format(global_variables[i]))
+        bts.standardDeviation('')
+        print('{}: Standard deviation computed'.format(global_variables[i]))
         bts.confidenceInterval()
         print('{}: Confidence interval saved'.format(global_variables[i]))
         bts.plotDistribution()
         print('{}: Distribution plot'.format(global_variables[i]))
 
+t4 = MPI.Wtime()
+if irank == root:
+    print("Bootstrapping time =", t4 - t3, flush=True)
 MPI.Finalize()
