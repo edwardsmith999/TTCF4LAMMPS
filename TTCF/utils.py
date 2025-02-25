@@ -34,6 +34,12 @@ def  run_mother_trajectory(lmp,Nsteps,Thermo_damp):
     return None
 
 
+def run_mother_trajectory_dpdp(lmp, Nsteps, Thermo_damp):
+    lmp.command("fix NVE_equilibrium all nve")
+    lmp.command("run " + str(Nsteps))
+    lmp.command("unfix NVE_equilibrium")
+
+
 def get_fix_data(lmp, fixname, variables, Nbins=None):
 
     nlmp = lmp.numpy
