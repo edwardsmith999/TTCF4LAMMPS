@@ -149,6 +149,7 @@ for Nd in range(Ndaughters):
 
 #Close lammps instance and plot time taken
 lmp.close()
+comm.Barrier()
 t2 = MPI.Wtime()
 if irank == root:
     print("Walltime =", t2 - t1, flush=True)
