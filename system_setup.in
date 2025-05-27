@@ -1,7 +1,7 @@
 units		    lj
 dimension	    3
 atom_style      full 
-neigh_modify	delay 0 every 1
+neigh_modify	delay 0 every 1 check no
 boundary		p p p
 
 variable rho equal 0.8442                               #Density
