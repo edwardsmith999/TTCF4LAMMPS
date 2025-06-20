@@ -57,40 +57,49 @@ class Bootstrap():
             warnings.warn('A number of resamples per processor that is a mutiple of {} should be used'.format(int(100/(5 * 10**exponent))))
 
 
-    def concatenateTrajectories(self):
+    def concatenateTrajectories(self, comm):
         """
             Function used to concatenate the results written on different files
             by different processes, in single a single file per variable of the
             TTCF equation.
         """
-        for i in ['OB', 'O', 'B']:
-            outFilename = self.directory + '/' + str(self.variable) + '_' + i +'_global.txt'
-            inFilenames = glob.glob(self.directory + '/' + str(self.variable) + '_' + i + '_*.dat')
-            if os.path.isfile(outFilename):
-                # warnings.warn('File {} already exists, skipping concatenation'.format(outFilename))
-                print('File {} already exists, skipping concatenation'.format(outFilename))
-            else:
-                with open(outFilename, 'w+') as outF:
-                    for filename in inFilenames:
-                        with open(filename, 'r') as inF:
-                            shutil.copyfileobj(inF, outF)
-                        os.remove(filename)
+        if comm.Get_rank() == 0:
+            for i in ['OB', 'O', 'B']:
+                outFilename = self.directory + '/' + str(self.variable) + '_' + i +'_global.txt'
+                inFilenames = glob.glob(self.directory + '/' + str(self.variable) + '_' + i + '_*.dat')
+                if os.path.isfile(outFilename):
+                    # warnings.warn('File {} already exists, skipping concatenation'.format(outFilename))
+                    print('File {} already exists, skipping concatenation'.format(outFilename))
+                else:
+                    with open(outFilename, 'w+') as outF:
+                        for filename in inFilenames:
+                            with open(filename, 'r') as inF:
+                                shutil.copyfileobj(inF, outF)
+                            os.remove(filename)
 
 
-    def readTrajectories(self):
-        filenames = [self. directory + '/' + self.variable + '_OB_global.txt',
-                     self. directory + '/' + self.variable + '_O_global.txt',
-                     self. directory + '/' + self.variable + '_B_global.txt']
-        arrays = [[], [], []]
-        for i in range(len(filenames)):
-            with open(filenames[i]) as f:
-                for line in f:
-                    line = line.strip()
-                    line = line.split()
-                    arrays[i].append([float(x) for x in line])
-        self.variable_OB = np.array(arrays[0])
-        self.variable_O = np.array(arrays[1])
-        self.variable_B = np.array(arrays[2])
+    def readTrajectories(self, comm):
+        if comm.Get_rank() == 0:
+            filenames = [self. directory + '/' + self.variable + '_OB_global.txt',
+                         self. directory + '/' + self.variable + '_O_global.txt',
+                         self. directory + '/' + self.variable + '_B_global.txt']
+            arrays = [[], [], []]
+            for i in range(len(filenames)):
+                with open(filenames[i]) as f:
+                    for line in f:
+                        line = line.strip()
+                        line = line.split()
+                        arrays[i].append([float(x) for x in line])
+            self.variable_OB = np.array(arrays[0])
+            self.variable_O = np.array(arrays[1])
+            self.variable_B = np.array(arrays[2])
+        else:
+            self.variable_OB = np.empty(shape=self.nTimesteps*self.nTrajectories)
+            self.variable_O = np.empty(shape=self.nTimesteps*self.nTrajectories)
+            self.variable_B = np.empty(shape=self.nTimesteps*self.nTrajectories)
+        comm.Bcast(self.variable_OB, root=0)
+        comm.Bcast(self.variable_O, root=0)
+        comm.Bcast(self.variable_B, root=0)
 
 
     def groupTrajectories(self):
@@ -200,22 +209,24 @@ class Bootstrap():
         self.recvMean = None
         self.recvStd = None
         self.sendMean = np.ascontiguousarray(self.averageBtMean)
-        self.sendStd = np.ascontiguousarray(self.averageBtStd)
+        if self.stdFlag:
+            self.sendStd = np.ascontiguousarray(self.averageBtStd)
         if comm.Get_rank() == 0:
             recvSize = [comm.Get_size()] + [self.averageBtMean.shape[i] for i in range(len(self.averageBtMean.shape))]
             self.recvMean = np.empty(recvSize, dtype=self.sendMean.dtype)
-            self.recvStd = np.empty(recvSize, dtype=self.sendStd.dtype)
+            if self.stdFlag:
+                self.recvStd = np.empty(recvSize, dtype=self.sendStd.dtype)
         comm.Gather(self.sendMean, self.recvMean, root=root)
-        comm.Gather(self.sendStd, self.recvStd, root=root)
+        if self.stdFlag:
+            comm.Gather(self.sendStd, self.recvStd, root=root)
         if comm.Get_rank() == 0:
             self.averageBtMean = self.recvMean
-            self.averageBtStd = self.recvStd
-            self.averageBtMean = self.recvMean
-            self.averageBtStd = self.recvStd
             self.averageBtMean = self.averageBtMean.transpose((1, 0, 2))
             self.averageBtMean = self.averageBtMean.reshape((self.nTimesteps, self.averageBtMean.shape[1]*self.averageBtMean.shape[2]))
-            self.averageBtStd = self.averageBtStd.transpose((1, 0, 2))
-            self.averageBtStd = self.averageBtStd.reshape((self.nTimesteps, self.averageBtStd.shape[1]*self.averageBtStd.shape[2]))
+            if self.stdFlag:
+                self.averageBtStd = self.recvStd
+                self.averageBtStd = self.averageBtStd.transpose((1, 0, 2))
+                self.averageBtStd = self.averageBtStd.reshape((self.nTimesteps, self.averageBtStd.shape[1]*self.averageBtStd.shape[2]))
 
     def confidenceInterval(self):
         """
