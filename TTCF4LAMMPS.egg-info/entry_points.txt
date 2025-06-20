@@ -1,0 +1,3 @@
+[console_scripts]
+TTCF = run_TTCF:main
+

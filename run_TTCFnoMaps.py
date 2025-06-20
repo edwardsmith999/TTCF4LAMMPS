@@ -2,6 +2,7 @@
 import numpy as np
 from lammps import lammps
 from mpi4py import MPI
+import time
 
 from TTCF import utils
 from TTCF import TTCF
@@ -29,7 +30,7 @@ showplots             = False
 
 # Define parameters for bootstrapping
 totResamples = 10000
-nResamples = int(np.ceil(totResamples/nproc))
+nResamples = int(np.ceil(totResamples/nprocs))
 nGroups = nResamples
 
 #Set the the GPU force calculation (1 GPU calculation, 0 no use of GPU).
@@ -72,6 +73,7 @@ setlist.append("compute        stress all stress/atom shear_T")
 setlist.append("fix Profile_variables all ave/chunk 1 1 {} profile_layers {} ave one".format(Delay, ' '.join(profile_variables)))
 #And global (ave/time fix) variables, often custom computes/variables, see https://docs.lammps.org/fix_ave_time.html
 global_variables = ['c_shear_P[4]', 'v_Omega']
+bts_variables = ['c_shear_P[4]']
 #global ave/time fix
 setlist.append("fix Global_variables all ave/time 1 1 {} {} ave one".format(Delay, ' '.join(global_variables)))
 
@@ -170,40 +172,40 @@ comm.Barrier()
 
 t3 = MPI.Wtime()
 
-if irank == root:
-    for i in range(len(global_variables)):
-        bts = Bts.Bootstrap(global_variables[i], nResamples, Tot_Daughters, nGroups, Nsteps_Daughter)
-        bts.concatenateTrajectories()
-        print('{}: Trajectories concatenated'.format(global_variables[i]))
-
-for i in range(len(global_variables)):
-    bts = Bts.Bootstrap(global_variables[i], nResamples, Tot_Daughters, nGroups, Nsteps_Daughter)
-    bts.readTrajectories()
-    print('Proc {}, {}: Trajectories read'.format(irank+1, global_variables[i]))
-    bts.groupTrajectories()
-    print('Proc {}, {}: Trajectories grouped'.format(irank+1, global_variables[i]))
-    bts.averageWithin()
-    print('Proc {}, {}: Trajectories averaged within'.format(irank+1, global_variables[i]))
-    bts.resampleAvergeBetweenForMean()
-    print('Proc {}, {}: Trajectories resampled and averaged between for the mean'.format(irank+1, global_variables[i]))
-    bts.resampleAvergeBetweenForStd()
-    print('Proc {}, {}: Trajectories resampled and averaged between for the standard deviation'.format(irank+1, global_variables[i]))
-    bts.sumIntegrals()
-    print('Proc {}, {}: B(t) mean and standard deviation created'.format(irank+1, global_variables[i]))
-
+for i in range(len(bts_variables)):
+    bts = Bts.Bootstrap(variable=bts_variables[i], nResamples=nResamples,
+                        nTrajectories=Tot_Daughters, nGroups=nGroups,
+                        nTimesteps=Nsteps_Daughter)
+    bts.concatenateTrajectories(comm)
+    print('{}: Trajectories concatenated'.format(variables[i]))
     comm.Barrier()
- 
-    bts.gather_over_MPI(comm)
-    print('{}: mean and stardard deviation gathered by root'.format(global_variables[i]))
-    if irank == root:
+    bts.readTrajectories(comm)
+    print('Proc {}, {}: Trajectories read'.format(irank+1, variables[i]))
+    comm.Barrier()
+    bts.groupTrajectories()
+    print('Proc {}, {}: Trajectories grouped'.format(irank+1, variables[i]))
+    bts.averageWithin()
+    print('Proc {}, {}: Trajectories averaged within'.format(irank+1, variables[i]))
+    bts.resampleAvergeBetweenForMean()
+    print('Proc {}, {}: Trajectories resampled and averaged between for the mean'.format(irank+1, variables[i]))
+    bts.resampleAvergeBetweenForStd()
+    print('Proc {}, {}: Trajectories resampled and averaged between for the standard deviation'.format(irank+1, variables[i]))
+    bts.sumIntegrals()
+    print('Proc {}, {}: B(t) mean and standard deviation created'.format(irank+1, variables[i]))
+    
+    comm.Barrier()
+    
+    bts.gather_over_MPI(comm, root=0)
+    print('{}: mean and stardard deviation gathered by root'.format(variables[i]))
+    if irank == 0:
         bts.meanForComparison()
-        print('{}: Mean and its standard deviation computed'.format(global_variables[i]))
+        print('{}: Mean and its standard deviation computed'.format(variables[i]))
         bts.standardDeviation('')
-        print('{}: Standard deviation computed'.format(global_variables[i]))
+        print('{}: Standard deviation computed'.format(variables[i]))
         bts.confidenceInterval()
-        print('{}: Confidence interval saved'.format(global_variables[i]))
+        print('{}: Confidence interval saved'.format(variables[i]))
         bts.plotDistribution()
-        print('{}: Distribution plot'.format(global_variables[i]))
+        print('{}: Distribution plot'.format(variables[i]))
 
 t4 = MPI.Wtime()
 if irank == root:

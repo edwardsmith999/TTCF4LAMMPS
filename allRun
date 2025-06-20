@@ -1,0 +1,3 @@
+#!/bin/bash
+
+mpiexec --mca btl ^tcp -np 20 python3 run_TTCF.py
