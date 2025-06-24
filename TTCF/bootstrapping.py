@@ -94,9 +94,9 @@ class Bootstrap():
             self.variable_O = np.array(arrays[1])
             self.variable_B = np.array(arrays[2])
         else:
-            self.variable_OB = np.empty(shape=self.nTimesteps*self.nTrajectories)
-            self.variable_O = np.empty(shape=self.nTimesteps*self.nTrajectories)
-            self.variable_B = np.empty(shape=self.nTimesteps*self.nTrajectories)
+            self.variable_OB = np.empty((self.nTrajectories, self.nTimesteps))
+            self.variable_O = np.empty((self.nTrajectories, self.nTimesteps))
+            self.variable_B = np.empty((self.nTrajectories, self.nTimesteps))
         comm.Bcast(self.variable_OB, root=0)
         comm.Bcast(self.variable_O, root=0)
         comm.Bcast(self.variable_B, root=0)
