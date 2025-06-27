@@ -45,6 +45,7 @@ class Bootstrap():
         self.variable_B = []
         self.averageBt = []
         self.stdFlag = False
+        self.meanFlag = False
 
         if self.nTrajectories % self.nGroups != 0:
             raise Exception('The number of trajectories must be a multiple of the number of groups')
@@ -142,6 +143,7 @@ class Bootstrap():
             
             The arrays in output have shape (nTimesteps, nResamples).
         """
+        self.meanFlag = True
         batches = np.zeros((self.nResamples, self.nTimesteps))
         for i in range(self.nResamples):
             newSample = np.random.randint(self.nGroups, size=(self.nGroups))
@@ -191,7 +193,8 @@ class Bootstrap():
 
 
     def sumIntegrals(self):
-        self.averageBtMean = self.variable_OB_mean - self.variable_O_mean*self.variable_B_mean
+        if self.meanFlag:
+            self.averageBtMean = self.variable_OB_mean - self.variable_O_mean*self.variable_B_mean
         if self.stdFlag:
             self.averageBtStd = self.variable_OB_std - self.variable_O_std*self.variable_B_std
 
@@ -206,27 +209,34 @@ class Bootstrap():
             The gathered array are reshaped in order to have shape
             (nTimesteps, nResamples*nProcesses)
         """
-        self.recvMean = None
-        self.recvStd = None
-        self.sendMean = np.ascontiguousarray(self.averageBtMean)
-        if self.stdFlag:
-            self.sendStd = np.ascontiguousarray(self.averageBtStd)
-        if comm.Get_rank() == 0:
-            recvSize = [comm.Get_size()] + [self.averageBtMean.shape[i] for i in range(len(self.averageBtMean.shape))]
-            self.recvMean = np.empty(recvSize, dtype=self.sendMean.dtype)
+        if not self.meanFlag and not self.stdFlag:
+            raise Exception('Neither mean nor standard deviation were computed, nothing to do here')
+        else:
+            self.recvMean = None
+            self.recvStd = None
+            if self.meanFlag:
+                self.sendMean = np.ascontiguousarray(self.averageBtMean)
             if self.stdFlag:
-                self.recvStd = np.empty(recvSize, dtype=self.sendStd.dtype)
-        comm.Gather(self.sendMean, self.recvMean, root=root)
-        if self.stdFlag:
-            comm.Gather(self.sendStd, self.recvStd, root=root)
-        if comm.Get_rank() == 0:
-            self.averageBtMean = self.recvMean
-            self.averageBtMean = self.averageBtMean.transpose((1, 0, 2))
-            self.averageBtMean = self.averageBtMean.reshape((self.nTimesteps, self.averageBtMean.shape[1]*self.averageBtMean.shape[2]))
+                self.sendStd = np.ascontiguousarray(self.averageBtStd)
+            if comm.Get_rank() == 0:
+                recvSize = [comm.Get_size()] + [self.averageBtMean.shape[i] for i in range(len(self.averageBtMean.shape))]
+                if self.meanFlag:
+                    self.recvMean = np.empty(recvSize, dtype=self.sendMean.dtype)
+                if self.stdFlag:
+                    self.recvStd = np.empty(recvSize, dtype=self.sendStd.dtype)
+            if self.meanFlag:
+                comm.Gather(self.sendMean, self.recvMean, root=root)
             if self.stdFlag:
-                self.averageBtStd = self.recvStd
-                self.averageBtStd = self.averageBtStd.transpose((1, 0, 2))
-                self.averageBtStd = self.averageBtStd.reshape((self.nTimesteps, self.averageBtStd.shape[1]*self.averageBtStd.shape[2]))
+                comm.Gather(self.sendStd, self.recvStd, root=root)
+            if comm.Get_rank() == 0:
+                if self.meanFlag:
+                    self.averageBtMean = self.recvMean
+                    self.averageBtMean = self.averageBtMean.transpose((1, 0, 2))
+                    self.averageBtMean = self.averageBtMean.reshape((self.nTimesteps, self.averageBtMean.shape[1]*self.averageBtMean.shape[2]))
+                if self.stdFlag:
+                    self.averageBtStd = self.recvStd
+                    self.averageBtStd = self.averageBtStd.transpose((1, 0, 2))
+                    self.averageBtStd = self.averageBtStd.reshape((self.nTimesteps, self.averageBtStd.shape[1]*self.averageBtStd.shape[2]))
 
     def confidenceInterval(self):
         """
