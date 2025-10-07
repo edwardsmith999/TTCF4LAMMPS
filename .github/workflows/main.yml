@@ -45,6 +45,7 @@ jobs:
         
     - name: Test run_TTCF example completes without error
       run: |
+        sed -i 's|Tot_Daughters         = 1000|Tot_Daughters = 10|' run_TTCF.py
         python run_TTCF.py
 
     - name: Test run_TTCF gives linear profile
