@@ -133,13 +133,13 @@ class TTCF():
         if irank == self.root:
             self.TTCF_profile_mean_total = self.TTCF_profile_mean_total/float(self.nprocs)
             self.DAV_profile_mean_total  = self.DAV_profile_mean_total/float(self.nprocs)
-            self.TTCF_profile_var_total  = self.TTCF_profile_var_total/float(self.nprocs)
-            self.DAV_profile_var_total   = self.DAV_profile_var_total/float(self.nprocs)
+            self.TTCF_profile_var_total  = self.TTCF_profile_var_total/float(self.nprocs*self.nprocs)
+            self.DAV_profile_var_total   = self.DAV_profile_var_total/float(self.nprocs*self.nprocs)
             
             self.TTCF_global_mean_total = self.TTCF_global_mean_total/float(self.nprocs)
             self.DAV_global_mean_total  = self.DAV_global_mean_total/float(self.nprocs)
-            self.TTCF_global_var_total  = self.TTCF_global_var_total/float(self.nprocs)
-            self.DAV_global_var_total   = self.DAV_global_var_total/float(self.nprocs)
+            self.TTCF_global_var_total  = self.TTCF_global_var_total/float(self.nprocs*self.nprocs)
+            self.DAV_global_var_total   = self.DAV_global_var_total/float(self.nprocs*self.nprocs)
             
             self.TTCF_profile_SE_total  = np.sqrt(self.TTCF_profile_var_total)
             self.DAV_profile_SE_total   = np.sqrt(self.DAV_profile_var_total)
@@ -388,7 +388,7 @@ class TTCFnoMap():
         self.DAV_profile_var  = self.DAV_profile_var[:,:,2:]
 
         self.DAV_global_var /= float(self.Count)
-        self.DAV_profile_var  /= float(self.Count)
+        self.DAV_profile_var /= float(self.Count)
 
         # Compute MEAN AND VARIANCE OF BOTH DAV AND TTCF
         self.DAV_profile_mean_total = sum_over_MPI(self.DAV_profile_mean, irank, comm)
@@ -408,10 +408,10 @@ class TTCFnoMap():
         # Total is None on everything but the root processor
         if irank == self.root:
             self.DAV_profile_mean_total  = self.DAV_profile_mean_total/float(self.nprocs)
-            self.DAV_profile_var_total   = self.DAV_profile_var_total/float(self.nprocs)
+            self.DAV_profile_var_total   = self.DAV_profile_var_total/float(self.nprocs*self.nprocs)
             
             self.DAV_global_mean_total  = self.DAV_global_mean_total/float(self.nprocs)
-            self.DAV_global_var_total   = self.DAV_global_var_total/float(self.nprocs)
+            self.DAV_global_var_total   = self.DAV_global_var_total/float(self.nprocs*self.nprocs)
             
             self.DAV_profile_SE_total   = np.sqrt(self.DAV_profile_var_total)
             self.DAV_global_SE_total    = np.sqrt(self.DAV_global_var_total)
@@ -426,8 +426,6 @@ class TTCFnoMap():
 
             self.TTCF_global_mean_total = self.global_B_zero_mean_total + self.global_OB_mean_total - self.global_O_zero_mean_total*self.global_B_mean_total
             self.TTCF_profile_mean_total = self.profile_B_zero_mean_total + self.profile_OB_mean_total - self.profile_O_zero_mean_total*self.profile_B_mean_total
-            # self.TTCF_global_mean_total = self.global_B_zero_mean_total + self.global_OB_mean_total - self.global_O_zero_mean_total*self.global_B_mean_total
-            # self.TTCF_profile_mean_total = self.profile_B_zero_mean_total + self.profile_OB_mean_total - self.profile_O_zero_mean_total*self.profile_B_mean_total
 
 
     def plot_data(self, animated=False):
