@@ -1,5 +1,0 @@
-lammps
-matplotlib
-mpi4py
-numpy
-scipy
