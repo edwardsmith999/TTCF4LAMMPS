@@ -79,19 +79,21 @@ class Bootstrap():
 
     def readTrajectories(self, comm):
         if comm.Get_rank() == 0:
+            self.variable_OB = np.empty((self.nTrajectories, self.nTimesteps))
+            self.variable_O = np.empty((self.nTrajectories, self.nTimesteps))
+            self.variable_B = np.empty((self.nTrajectories, self.nTimesteps))
             filenames = [self. directory + '/' + self.variable + '_OB_global.txt',
                          self. directory + '/' + self.variable + '_O_global.txt',
                          self. directory + '/' + self.variable + '_B_global.txt']
-            arrays = [[], [], []]
-            for i in range(len(filenames)):
-                with open(filenames[i]) as f:
-                    for line in f:
-                        line = line.strip()
-                        line = line.split()
-                        arrays[i].append([float(x) for x in line])
-            self.variable_OB = np.array(arrays[0])
-            self.variable_O = np.array(arrays[1])
-            self.variable_B = np.array(arrays[2])
+            with open(filenames[0]) as f:
+                for i, line in enumerate(f):
+                    self.variable_OB[i] = [float(x) for x in line.strip().split()]
+            with open(filenames[1]) as f:
+                for i, line in enumerate(f):
+                    self.variable_O[i] = [float(x) for x in line.strip().split()]
+            with open(filenames[2]) as f:
+                for i, line in enumerate(f):
+                    self.variable_B[i] = [float(x) for x in line.strip().split()]
         else:
             self.variable_OB = np.empty((self.nTrajectories, self.nTimesteps))
             self.variable_O = np.empty((self.nTrajectories, self.nTimesteps))
@@ -99,7 +101,6 @@ class Bootstrap():
         comm.Bcast(self.variable_OB, root=0)
         comm.Bcast(self.variable_O, root=0)
         comm.Bcast(self.variable_B, root=0)
-
 
     def groupTrajectories(self):
         """
@@ -133,7 +134,7 @@ class Bootstrap():
         self.variable_B = np.mean(self.variable_B, axis=-1)
 
 
-    def resampleAvergeBetweenForMean(self):
+    def resampleAvergeBetweenForMean(self, comm):
         """
             This function performs the resampling with replacement, classic of
             the bootstrapping technique.
@@ -142,6 +143,7 @@ class Bootstrap():
             The arrays in output have shape (nTimesteps, nResamples).
         """
         self.meanFlag = True
+        rankk = comm.Get_rank()
 
         batches_OB = np.zeros((self.nResamples, self.nTimesteps))
         batches_O = np.zeros((self.nResamples, self.nTimesteps))
@@ -151,9 +153,13 @@ class Bootstrap():
             batches_OB[i] = np.mean(self.variable_OB[newSample, :], axis=0)
             batches_O[i] = np.mean(self.variable_O[newSample, :], axis=0)
             batches_B[i] = np.mean(self.variable_B[newSample, :], axis=0)
+            print('Proc {}: resample {} / {} completed'.format(rankk, i+1, self.nResamples))
         self.variable_OB_mean= batches_OB.T
         self.variable_O_mean= batches_O.T
         self.variable_B_mean= batches_B.T
+        del self.variable_OB
+        del self.variable_O
+        del self.variable_B
 
 
     def sumOriginalTrj(self):
